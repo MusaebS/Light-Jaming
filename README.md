@@ -107,6 +107,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Fixed strict TypeScript generic event-handler typing in `GameBridge.on/emit`, resolving Next.js production build failures during Vercel type-checking.
 - ✅ Fixed Phaser `Set#each` callbacks in `RunScene` to return a boolean, resolving strict TypeScript build failures during Vercel deployment.
 - ✅ Fixed Phaser imports to use namespace imports (`import * as Phaser`) for compatibility with Next.js production builds.
 - ✅ Removed explicit `JSX.Element` return types to resolve React 19 TypeScript namespace issues during Vercel type-checking.

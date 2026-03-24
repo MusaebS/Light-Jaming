@@ -26,19 +26,22 @@ export interface BridgeEvents {
 
 type EventKey = keyof BridgeEvents;
 type Handler<K extends EventKey> = (payload: BridgeEvents[K]) => void;
+type HandlerStore = { [K in EventKey]?: Handler<K>[] };
 
 export class GameBridge {
-  private handlers: { [K in EventKey]?: Handler<K>[] } = {};
+  private handlers: HandlerStore = {};
 
   emit<K extends EventKey>(event: K, payload: BridgeEvents[K]): void {
-    this.handlers[event]?.forEach((handler) => handler(payload as never));
+    const eventHandlers = (this.handlers[event] ?? []) as Handler<K>[];
+    eventHandlers.forEach((handler) => handler(payload));
   }
 
   on<K extends EventKey>(event: K, handler: Handler<K>): () => void {
-    const existing = this.handlers[event] ?? [];
-    this.handlers[event] = [...existing, handler as never];
+    const existing = (this.handlers[event] ?? []) as Handler<K>[];
+    this.handlers[event] = [...existing, handler] as HandlerStore[K];
     return () => {
-      this.handlers[event] = (this.handlers[event] ?? []).filter((h) => h !== handler);
+      const current = (this.handlers[event] ?? []) as Handler<K>[];
+      this.handlers[event] = current.filter((entry) => entry !== handler) as HandlerStore[K];
     };
   }
 }
