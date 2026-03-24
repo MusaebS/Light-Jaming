@@ -1,0 +1,105 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: #090c10;
+  color: #e6edf4;
+}
+
+main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.panel {
+  background: #111821;
+  border: 1px solid #294051;
+  border-radius: 12px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  background: #1a2531;
+  color: #dff4ff;
+  border: 1px solid #36566f;
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.start {
+  margin-top: 12px;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-radius: 8px;
+  background: linear-gradient(90deg, #2a8f9f, #4fc968);
+  color: #041018;
+  font-weight: 700;
+}
+
+.hud {
+  position: sticky;
+  top: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(80px, 1fr));
+  gap: 6px;
+  background: rgba(8, 12, 18, 0.93);
+  border: 1px solid #37566b;
+  padding: 8px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+  font-size: 0.9rem;
+}
+
+.hud p {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #9ec5d8;
+}
+
+.touch-wrap {
+  display: none;
+}
+
+.muted {
+  color: #95aab8;
+  margin: 4px 0;
+}
+
+@media (max-width: 880px) {
+  .touch-wrap {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    position: sticky;
+    bottom: 8px;
+    margin-top: 10px;
+  }
+
+  .touch-left button,
+  .touch-right button {
+    min-width: 58px;
+    min-height: 44px;
+    background: #223445;
+    color: #d7f0ff;
+    border: 1px solid #3f637d;
+    border-radius: 8px;
+    margin: 3px;
+  }
+}
