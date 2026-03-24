@@ -1,4 +1,4 @@
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { BootScene } from '@/lib/game/scenes/BootScene';
 import { RunScene } from '@/lib/game/scenes/RunScene';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';

@@ -6,7 +6,7 @@ export const metadata = {
   description: 'A tiny replayable scavenging action prototype built with Next.js + Phaser.'
 };
 
-export default function RootLayout({ children }: { children: ReactNode }): JSX.Element {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body>{children}</body>

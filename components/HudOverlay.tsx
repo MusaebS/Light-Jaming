@@ -7,7 +7,7 @@ interface HudOverlayProps {
   prompt: string;
 }
 
-export function HudOverlay({ hud, prompt }: HudOverlayProps): JSX.Element {
+export function HudOverlay({ hud, prompt }: HudOverlayProps) {
   return (
     <div className="hud">
       <div>HP {hud.health}</div>
