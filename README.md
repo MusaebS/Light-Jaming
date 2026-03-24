@@ -1,154 +1,112 @@
-# Scrapcore
+# SCRAP PILGRIM (Next.js + Phaser MVP)
 
-Scrapcore is a modular Streamlit game prototype about surviving as a salvaged robot in a brutal post-apocalyptic scrapyard. The MVP focuses on a stable, mobile-friendly loop of **explore → scavenge → fight → loot → upgrade → survive**.
+A polished browser-first indie prototype where a small scavenger robot explores weird machine wastelands, gathers scrap, fights readable enemies, and returns to a workshop for upgrades and fusion builds.
 
-## Implementation plan
+## Design summary
 
-1. Build a clean multi-module Python architecture with separated game logic, world generation, combat, loot, upgrades, and UI.
-2. Ship a fully playable Streamlit MVP that works reliably in a turn-based format suitable for phones and Streamlit reruns.
-3. Add lightweight automated tests, JSON save/load, and developer notes so the prototype is easy to extend.
+- **Core loop:** workshop → zone run → collect + survive → push or retreat → install upgrades/fusions → rerun.
+- **Motivation pillars:** autonomy, competence, world connection, flow, respect-for-time.
+- **Input:** desktop keyboard + mobile touch controls.
+- **Architecture:** Next.js shell/UI, Phaser gameplay scene, event bridge, localStorage save system.
+- **MVP scope delivered:**
+  - 1 workshop hub
+  - 2 zones (Chrome Marsh + Cathedral of Toasters unlock)
+  - 10 upgrades + 2 fusion outcomes
+  - 6 enemy types
+  - merchant + rival flavor text
+  - random run events
+  - meta progression (blueprints/codex/zone shortcut unlock)
+  - save/load, settings toggles, reduced motion and shake settings
 
-## Project structure
+## Project file tree
 
 ```text
-app.py
-game/
-  balance.py
-  combat.py
-  constants.py
-  damage.py
-  loot.py
-  models.py
-  progression.py
-  state.py
-  ui.py
-  utils.py
-  world.py
-tests/
-requirements.txt
-.streamlit/config.toml
+app/
+  globals.css
+  layout.tsx
+  page.tsx
+components/
+  GameCanvas.tsx
+  HudOverlay.tsx
+  SettingsPanel.tsx
+  TouchControls.tsx
+  WorkshopPanel.tsx
+lib/game/
+  config/phaserConfig.ts
+  data/enemies.ts
+  data/events.ts
+  data/fusion.ts
+  data/upgrades.ts
+  data/zones.ts
+  entities/playerLogic.ts
+  scenes/BootScene.ts
+  scenes/RunScene.ts
+  systems/gameBridge.ts
+  systems/saveSystem.ts
+  types/gameTypes.ts
+next.config.ts
+package.json
+tsconfig.json
 ```
 
-## Features included
-
-- **Mobile-first Streamlit layout** with large buttons, stacked panels, and minimal clutter.
-- **Turn-based top-down exploration loop** on a generated 5x5 ruined surface map.
-- **Scavenging nodes** that provide scrap and modular robot parts.
-- **Primitive robot melee combat** with approach, attack, guard, and dodge actions.
-- **Internal damage model** affecting core, locomotion, actuator, weapon mount, and stabilizer systems.
-- **Enemy archetypes** including light scavenger, heavy bruiser, fast striker, and armored defender.
-- **Inventory and equipment system** for modular parts and industrial melee tools.
-- **Workshop upgrades** fueled by scavenged scrap.
-- **Session-state persistence** plus optional JSON save/load.
-- **Automated tests** covering combat, progression, and world generation basics.
-
-## Run locally
-
-### 1) Create a virtual environment
+## Install
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+npm install
 ```
 
-### 2) Install dependencies
+## Run in development
 
 ```bash
-pip install -r requirements.txt
+npm run dev
 ```
 
-### 3) Launch the game
+## Build
 
 ```bash
-streamlit run app.py
+npm run build
 ```
 
-Then open the local Streamlit URL in your browser. For phone testing, use a narrow responsive viewport or load the local URL from a device on the same network if your environment allows it.
+## Vercel deploy notes
 
-## How to play
+- Framework preset: **Next.js**.
+- Build command: `npm run build`.
+- Output handled by Next.js automatically.
+- No server secrets required for this MVP.
+- Saves are local to each device/browser via `localStorage`.
 
-1. Start in the center tile as a weak salvage robot with only **Reinforced Fists**.
-2. Use the movement buttons to travel across the ruined surface.
-3. Tap **Scavenge** to strip a tile for scrap and possible equipment.
-4. When an enemy appears, use:
-   - **Approach** to close melee distance.
-   - **Attack** to strike once in range.
-   - **Guard** to reduce incoming damage.
-   - **Dodge** to create space.
-5. Loot destroyed enemies for scrap and parts.
-6. Equip found parts from inventory and buy workshop upgrades.
-7. Survive as long as possible while preserving your internal systems, especially the **Core**.
+## Systems explained
 
-## Internal damage design
+### Upgrades
+- Movement, tool, core, sensor, utility modules with tradeoffs and playstyle shifts.
+- Notable examples: Magnet Pulse, Hover Fan, Drill Beak, Arc Welder, Luck Engine.
 
-Scrapcore does not treat damage as only a flat HP bar:
+### Enemies
+- Six readable archetypes: Vacuum Wolves, Cutlery Spiders, Jealous Carts, Repair Saints, Fridge Mimics, Cable Eels.
+- Each has one tactical twist for learnable mastery.
 
-- **Shell / integrity damage** always happens when a heavy blow lands.
-- **Penetration** can occur when impact overcomes armor and stability.
-- Penetrating hits damage a random internal system:
-  - **Core**: if reduced to zero, the robot shuts down.
-  - **Locomotion**: lowers mobility.
-  - **Actuator**: lowers attack power.
-  - **Weapon mount**: lowers attack performance.
-  - **Stabilizer**: lowers effective armor and steadiness.
+### Fusion system
+- Compact recipe list with understandable outcomes.
+- Current fusions:
+  - magnet-pulse + shrine-bells → attracting-charm-field
+  - drill-beak + echo-sensor → secret-hunter-rig
 
-This keeps combat brutal and mechanical without requiring fragile real-time rendering.
+### Lightweight random events
+- Scrap Storm, Glitch Bloom, Vending Oracle, False Exit Door.
+- Events are transparent and fun (not deceptive, not punitive).
 
-## Developer notes: extending the prototype
+### Save system
+- Persisted in `localStorage`.
+- Stores player scrap, unlocked modules, known recipes, codex entries, zone unlocks, and settings.
 
-### Add new enemy types
+### Future expansion points
+- Add more zones by extending `lib/game/data/zones.ts`.
+- Add more enemies via `lib/game/data/enemies.ts`.
+- Add recipes via `lib/game/data/fusion.ts`.
+- Add event modifiers in `lib/game/data/events.ts` and `RunScene.ts`.
 
-Edit `game/constants.py` and add a new entry to `ENEMY_ARCHETYPES` with:
+## Progress log
 
-- display name
-- base stats
-- weapon / armor bonuses
-- loot bias
-
-`game/world.py` already selects from this catalog, so new archetypes become available automatically.
-
-### Add new loot or robot parts
-
-Edit `game/constants.py` and add a new entry in `PART_CATALOG`.
-Each part is data-driven and can define:
-
-- `slot`
-- `stat_bonuses`
-- `attack_bonus`
-- `armor_bonus`
-- `scrap_value`
-- `description`
-
-The scavenge and enemy drop systems use this catalog directly.
-
-### Add more maps or hazards later
-
-Recommended path:
-
-- move tile templates into dedicated data files or additional constants modules
-- extend `Tile` in `game/models.py`
-- add hazard resolution to `game/world.py`
-- render new state panels in `game/ui.py`
-
-### Keep future changes maintainable
-
-- Keep formulas in `game/balance.py`
-- Keep effect resolution in `game/damage.py`
-- Keep Streamlit rendering in `game/ui.py`
-- Keep session and persistence logic in `game/state.py`
-
-That separation is the main foundation for later additions like crafting, factions, environmental hazards, and larger world generation.
-
-## Testing
-
-Run:
-
-```bash
-pytest
-```
-
-## Notes on design decisions
-
-- The MVP uses a **turn-based combat model** instead of fragile real-time browser rendering so it remains stable on Streamlit and Streamlit Cloud.
-- The presentation is intentionally **functional, brutal, and minimal** rather than asset-heavy.
-- Dependencies are intentionally minimal for easier deployment.
+- ✅ Migrated project from Streamlit/Python prototype to Next.js + TypeScript + Phaser browser architecture.
+- ✅ Added modular game data, scene logic, workshop UI, and local persistence.
+- ✅ Implemented MVP loop with short-run replay structure.
