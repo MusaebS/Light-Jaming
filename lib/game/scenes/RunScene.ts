@@ -111,6 +111,8 @@ export class RunScene extends Phaser.Scene {
       if (this.selectedEvent.id === 'scrap-storm') {
         enemyBody.velocity.scale(1.03);
       }
+
+      return true;
     });
 
     if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) {
@@ -142,6 +144,8 @@ export class RunScene extends Phaser.Scene {
           this.collectScrap('enemy_salvage', 2);
         }
       }
+
+      return true;
     });
   }
 
@@ -174,6 +178,8 @@ export class RunScene extends Phaser.Scene {
         pickup.x += vec.x * 1.8;
         pickup.y += vec.y * 1.8;
       }
+
+      return true;
     });
   }
 
