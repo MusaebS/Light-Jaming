@@ -11,7 +11,7 @@ interface WorkshopProps {
   onStartRun: () => void;
 }
 
-export function WorkshopPanel({ save, onBuy, onFuse, onStartRun }: WorkshopProps): JSX.Element {
+export function WorkshopPanel({ save, onBuy, onFuse, onStartRun }: WorkshopProps) {
   return (
     <section className="panel">
       <h2>Workshop Hub</h2>

@@ -4,7 +4,7 @@ function holdKey(code: string, active: boolean): void {
   window.dispatchEvent(new KeyboardEvent(active ? 'keydown' : 'keyup', { code, bubbles: true }));
 }
 
-export function TouchControls(): JSX.Element {
+export function TouchControls() {
   const bindHold = (code: string) => ({
     onTouchStart: () => holdKey(code, true),
     onTouchEnd: () => holdKey(code, false),

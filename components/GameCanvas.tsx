@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-import Phaser from 'phaser';
+import * as Phaser from 'phaser';
 import { createPhaserGame } from '@/lib/game/config/phaserConfig';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 
@@ -10,7 +10,7 @@ interface GameCanvasProps {
   session: SessionConfig;
 }
 
-export function GameCanvas({ bridge, session }: GameCanvasProps): JSX.Element {
+export function GameCanvas({ bridge, session }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const gameRef = useRef<Phaser.Game | null>(null);
 

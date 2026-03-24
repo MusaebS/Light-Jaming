@@ -7,7 +7,7 @@ interface SettingsPanelProps {
   onChange: (next: GameSettings) => void;
 }
 
-export function SettingsPanel({ settings, onChange }: SettingsPanelProps): JSX.Element {
+export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
   return (
     <section className="panel">
       <h3>Comfort Settings</h3>

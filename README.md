@@ -107,6 +107,9 @@ npm run build
 
 ## Progress log
 
+- ✅ Fixed Phaser imports to use namespace imports (`import * as Phaser`) for compatibility with Next.js production builds.
+- ✅ Removed explicit `JSX.Element` return types to resolve React 19 TypeScript namespace issues during Vercel type-checking.
+- ✅ Updated Next.js packages from `15.2.0` to `15.2.6` to address CVE-2025-66478 patched-version requirement.
 - ✅ Migrated project from Streamlit/Python prototype to Next.js + TypeScript + Phaser browser architecture.
 - ✅ Added modular game data, scene logic, workshop UI, and local persistence.
 - ✅ Implemented MVP loop with short-run replay structure.

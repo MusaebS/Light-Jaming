@@ -1,7 +1,7 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { HudOverlay } from '@/components/HudOverlay';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { TouchControls } from '@/components/TouchControls';
@@ -23,7 +23,7 @@ const initialHud: HudPayload = {
   zone: 'chrome-marsh'
 };
 
-export default function HomePage(): JSX.Element {
+export default function HomePage() {
   const [save, setSave] = useState<GameSave>(defaultSave);
   const [loaded, setLoaded] = useState(false);
   const [running, setRunning] = useState(false);
@@ -33,65 +33,62 @@ export default function HomePage(): JSX.Element {
 
   const bridge = useMemo(() => new GameBridge(), []);
 
-  useMemo(() => {
+  useEffect(() => {
     if (loaded) return;
     const restored = loadSave();
     setSave(restored);
     setLoaded(true);
   }, [loaded]);
 
-  useMemo(
-    () =>
-      bridge.on('hud', (payload) => {
-        setHud(payload);
-      }),
+  useEffect(
+    () => bridge.on('hud', (payload) => {
+      setHud(payload);
+    }),
     [bridge]
   );
 
-  useMemo(
-    () =>
-      bridge.on('interactPrompt', ({ text }) => {
-        setPrompt(text);
-      }),
+  useEffect(
+    () => bridge.on('interactPrompt', ({ text }) => {
+      setPrompt(text);
+    }),
     [bridge]
   );
 
-  useMemo(
-    () =>
-      bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
-        setRunning(false);
-        setSave((prev) => {
-          const unlocked = blueprintFound && !prev.meta.unlockedUpgrades.includes(blueprintFound)
-            ? [...prev.meta.unlockedUpgrades, blueprintFound]
-            : prev.meta.unlockedUpgrades;
-          const codex = codexUnlock && !prev.meta.codexEntries.includes(codexUnlock)
-            ? [...prev.meta.codexEntries, codexUnlock]
-            : prev.meta.codexEntries;
+  useEffect(
+    () => bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
+      setRunning(false);
+      setSave((prev) => {
+        const unlocked = blueprintFound && !prev.meta.unlockedUpgrades.includes(blueprintFound)
+          ? [...prev.meta.unlockedUpgrades, blueprintFound]
+          : prev.meta.unlockedUpgrades;
+        const codex = codexUnlock && !prev.meta.codexEntries.includes(codexUnlock)
+          ? [...prev.meta.codexEntries, codexUnlock]
+          : prev.meta.codexEntries;
 
-          const next: GameSave = {
-            ...prev,
-            player: {
-              ...prev.player,
-              scrap: prev.player.scrap + extractedScrap,
-              runScrap: 0,
-              health: prev.player.maxHealth,
-              energy: prev.player.maxEnergy
-            },
-            meta: {
-              ...prev.meta,
-              unlockedUpgrades: unlocked,
-              codexEntries: codex,
-              zoneShortcuts:
-                extractedScrap > 40 && !prev.meta.zoneShortcuts.includes('cathedral-toasters')
-                  ? [...prev.meta.zoneShortcuts, 'cathedral-toasters']
-                  : prev.meta.zoneShortcuts
-            }
-          };
-          writeSave(next);
-          return next;
-        });
-        setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
-      }),
+        const next: GameSave = {
+          ...prev,
+          player: {
+            ...prev.player,
+            scrap: prev.player.scrap + extractedScrap,
+            runScrap: 0,
+            health: prev.player.maxHealth,
+            energy: prev.player.maxEnergy
+          },
+          meta: {
+            ...prev.meta,
+            unlockedUpgrades: unlocked,
+            codexEntries: codex,
+            zoneShortcuts:
+              extractedScrap > 40 && !prev.meta.zoneShortcuts.includes('cathedral-toasters')
+                ? [...prev.meta.zoneShortcuts, 'cathedral-toasters']
+                : prev.meta.zoneShortcuts
+          }
+        };
+        writeSave(next);
+        return next;
+      });
+      setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
+    }),
     [bridge]
   );
 
