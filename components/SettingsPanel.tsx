@@ -8,33 +8,39 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({ settings, onChange }: SettingsPanelProps) {
+  const toggleOptions = [
+    {
+      key: 'soundOn',
+      label: 'Sound',
+      checked: settings.soundOn
+    },
+    {
+      key: 'reducedMotion',
+      label: 'Reduced motion',
+      checked: settings.reducedMotion
+    },
+    {
+      key: 'reducedShake',
+      label: 'Reduced screen shake',
+      checked: settings.reducedShake
+    }
+  ] as const;
+
   return (
     <section className="panel">
       <h3>Comfort Settings</h3>
-      <label>
-        <input
-          checked={settings.soundOn}
-          onChange={(event) => onChange({ ...settings, soundOn: event.target.checked })}
-          type="checkbox"
-        />
-        Sound
-      </label>
-      <label>
-        <input
-          checked={settings.reducedMotion}
-          onChange={(event) => onChange({ ...settings, reducedMotion: event.target.checked })}
-          type="checkbox"
-        />
-        Reduced motion
-      </label>
-      <label>
-        <input
-          checked={settings.reducedShake}
-          onChange={(event) => onChange({ ...settings, reducedShake: event.target.checked })}
-          type="checkbox"
-        />
-        Reduced screen shake
-      </label>
+      <div className="settings-list">
+        {toggleOptions.map((option) => (
+          <label className="settings-option" key={option.key}>
+            <input
+              checked={option.checked}
+              onChange={(event) => onChange({ ...settings, [option.key]: event.target.checked })}
+              type="checkbox"
+            />
+            <span>{option.label}</span>
+          </label>
+        ))}
+      </div>
     </section>
   );
 }

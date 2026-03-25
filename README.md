@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Fixed mobile HUD and comfort-setting layout bugs by stacking comfort toggles cleanly and switching HUD stats to a responsive two-column layout on small screens.
 - ✅ Added an in-run pause/resume flow (Esc on desktop, Pause on touch) with explicit player-respecting messaging and no penalty for taking breaks.
 - ✅ Added zone-specific periodic hazards (Chrome Marsh conductive drain, Cathedral heat vents) to make both zones play differently while staying readable.
 - ✅ Added destructible junk mounds that can be broken for salvage, improving tactile scavenging and short-session route decisions.
