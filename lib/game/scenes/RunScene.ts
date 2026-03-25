@@ -29,6 +29,7 @@ export class RunScene extends Phaser.Scene {
   private selectedEvent = RUN_EVENTS[0];
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
+  private audioUnlocked = false;
   private touchState: Record<TouchControl, boolean> = {
     up: false,
     down: false,
@@ -52,8 +53,10 @@ export class RunScene extends Phaser.Scene {
     const worldRect = new Phaser.Geom.Rectangle(40, 40, 920, 620);
     this.drawArena(worldRect, zone.name);
 
-    this.player = this.add.circle(140, 120, 14, 0x72ffe7, 0);
+    this.player = this.add.circle(140, 120, 14, 0x72ffe7, 1);
+    this.player.setStrokeStyle(2, 0xd7fffa, 0.9);
     this.playerFacing = this.add.triangle(140, 120, 0, 16, 30, 8, 0, 0, 0x72ffe7).setOrigin(0.5, 0.5);
+    this.playerFacing.setStrokeStyle(1, 0xd7fffa, 0.9);
 
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
@@ -68,7 +71,7 @@ export class RunScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.scrapGroup, (_, pickup) => {
       pickup.destroy();
       this.collectScrap('common_scrap', 1);
-      this.playTone(760, 0.06, 'square', 0.03);
+      this.playSfx('pickup');
     });
 
     this.physics.add.overlap(this.player, this.enemies, () => {
@@ -86,6 +89,8 @@ export class RunScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SPACE', () => this.actionBurst());
     this.input.keyboard?.on('keydown-SHIFT', () => this.dodgeBurst());
     this.input.keyboard?.on('keydown-ESC', () => this.endRun('retreat'));
+    this.input.keyboard?.on('keydown', () => this.unlockAudio(), this);
+    this.input.on('pointerdown', () => this.unlockAudio(), this);
 
     this.controlUnsubscribe = this.bridge.on('control', ({ control, active }) => {
       this.touchState[control] = active;
@@ -105,7 +110,7 @@ export class RunScene extends Phaser.Scene {
         if (this.session.modules.includes('echo-sensor') || this.session.modules.includes('secret-hunter-rig')) {
           this.spawnScrap(4);
           this.bridge.emit('interactPrompt', { text: 'Echo pulse found hidden caches nearby.' });
-          this.playTone(560, 0.11, 'triangle', 0.045);
+          this.playSfx('cache');
         }
       }
     });
@@ -181,6 +186,18 @@ export class RunScene extends Phaser.Scene {
       wall.setStrokeStyle(1, 0x80bfff, 0.35);
     }
 
+    for (let i = 0; i < 15; i += 1) {
+      const beacon = this.add.circle(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), Phaser.Math.Between(3, 7), 0x63f7ff, 0.3);
+      this.tweens.add({
+        targets: beacon,
+        alpha: { from: 0.2, to: 0.65 },
+        yoyo: true,
+        repeat: -1,
+        duration: Phaser.Math.Between(900, 1800),
+        delay: Phaser.Math.Between(0, 700)
+      });
+    }
+
     this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' });
     this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' });
   }
@@ -192,7 +209,7 @@ export class RunScene extends Phaser.Scene {
 
     const strikeRadius = this.add.circle(this.player.x, this.player.y, 45, 0xf9da74, 0.18);
     this.time.delayedCall(120, () => strikeRadius.destroy());
-    this.playTone(220, 0.08, 'sawtooth', 0.06);
+    this.playSfx('action');
 
     this.enemies.children.each((child) => {
       const enemy = child as Phaser.GameObjects.Rectangle;
@@ -204,7 +221,7 @@ export class RunScene extends Phaser.Scene {
         if (hp <= 0) {
           enemy.destroy();
           this.collectScrap('enemy_salvage', 2);
-          this.playTone(130, 0.09, 'triangle', 0.07);
+          this.playSfx('defeat');
         }
       }
 
@@ -222,27 +239,69 @@ export class RunScene extends Phaser.Scene {
     if (body.velocity.lengthSq() < 1) {
       body.setVelocity(tuning.dashImpulse, 0);
     }
-    this.playTone(460, 0.05, 'square', 0.04);
+    this.playSfx('dodge');
   }
 
-  private playTone(frequency: number, seconds: number, type: OscillatorType, gain = 0.04): void {
+  private unlockAudio(): void {
+    if (this.audioUnlocked) return;
+    if (!(this.sound instanceof Phaser.Sound.WebAudioSoundManager)) return;
+    this.sound.context.resume();
+    this.audioUnlocked = true;
+  }
+
+  private playSfx(kind: 'pickup' | 'action' | 'dodge' | 'cache' | 'defeat'): void {
     if (!this.session.settings.soundOn) return;
     if (!(this.sound instanceof Phaser.Sound.WebAudioSoundManager)) return;
     const { context } = this.sound;
-
-    const osc = context.createOscillator();
-    const amp = context.createGain();
-    osc.type = type;
-    osc.frequency.value = frequency;
-    amp.gain.value = gain;
-    osc.connect(amp);
-    amp.connect(context.destination);
+    if (context.state !== 'running') return;
 
     const now = context.currentTime;
-    amp.gain.setValueAtTime(gain, now);
-    amp.gain.exponentialRampToValueAtTime(0.001, now + seconds);
-    osc.start(now);
-    osc.stop(now + seconds);
+    const master = context.createGain();
+    master.gain.value = 0.06;
+    master.connect(context.destination);
+
+    const beep = (from: number, to: number, duration: number, type: OscillatorType): void => {
+      const osc = context.createOscillator();
+      const amp = context.createGain();
+      osc.type = type;
+      osc.frequency.setValueAtTime(from, now);
+      osc.frequency.exponentialRampToValueAtTime(to, now + duration);
+      amp.gain.setValueAtTime(1, now);
+      amp.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      osc.connect(amp);
+      amp.connect(master);
+      osc.start(now);
+      osc.stop(now + duration);
+    };
+
+    const noise = (duration: number): void => {
+      const sampleCount = Math.floor(context.sampleRate * duration);
+      const buffer = context.createBuffer(1, sampleCount, context.sampleRate);
+      const data = buffer.getChannelData(0);
+      for (let i = 0; i < data.length; i += 1) data[i] = Math.random() * 2 - 1;
+      const src = context.createBufferSource();
+      const filter = context.createBiquadFilter();
+      filter.type = 'bandpass';
+      filter.frequency.value = 1400;
+      const amp = context.createGain();
+      amp.gain.setValueAtTime(0.45, now);
+      amp.gain.exponentialRampToValueAtTime(0.001, now + duration);
+      src.buffer = buffer;
+      src.connect(filter);
+      filter.connect(amp);
+      amp.connect(master);
+      src.start(now);
+      src.stop(now + duration);
+    };
+
+    if (kind === 'pickup') beep(840, 1020, 0.06, 'square');
+    if (kind === 'action') {
+      beep(260, 160, 0.12, 'sawtooth');
+      noise(0.08);
+    }
+    if (kind === 'dodge') beep(510, 740, 0.05, 'triangle');
+    if (kind === 'cache') beep(420, 620, 0.14, 'triangle');
+    if (kind === 'defeat') beep(170, 120, 0.16, 'sawtooth');
   }
 
   private collectScrap(type: LootType, amount: number): void {
