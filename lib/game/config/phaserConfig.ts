@@ -1,5 +1,4 @@
 import * as Phaser from 'phaser';
-import { BootScene } from '@/lib/game/scenes/BootScene';
 import { RunScene } from '@/lib/game/scenes/RunScene';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 
@@ -19,7 +18,7 @@ export function createPhaserGame(
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [BootScene, RunScene],
+    scene: [RunScene],
     callbacks: {
       postBoot: (game) => {
         game.scene.start('run', { bridge, session });
