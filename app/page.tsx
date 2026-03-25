@@ -180,7 +180,7 @@ export default function HomePage() {
         <>
           <HudOverlay hud={hud} prompt={prompt} />
           <GameCanvas bridge={bridge} session={{ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }} />
-          <TouchControls />
+          <TouchControls bridge={bridge} />
         </>
       )}
 

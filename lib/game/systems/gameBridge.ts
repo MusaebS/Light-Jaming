@@ -22,6 +22,10 @@ export interface BridgeEvents {
   pickup: { type: LootType; amount: number };
   runEnd: RunResultPayload;
   interactPrompt: { text: string };
+  control: {
+    control: 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact';
+    active: boolean;
+  };
 }
 
 type EventKey = keyof BridgeEvents;

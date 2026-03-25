@@ -114,6 +114,9 @@ npm run build
 
 ## Progress log
 
+- ✅ Improved run presentation with richer arena graphics (grid, props, directional player marker, extraction marker) so gameplay is visible and readable on web/mobile.
+- ✅ Fixed mobile touch controls by wiring buttons through `GameBridge` control events directly into Phaser input handling (instead of synthetic keyboard events that mobile browsers can ignore).
+- ✅ Added lightweight synthesized SFX (pickup/action/dodge/event cues) that respect the in-game Sound setting.
 - ✅ Updated `GameCanvas` to use a type-only Phaser import (`import type { Game }`) so the component avoids unnecessary runtime Phaser bindings while keeping build compatibility.
 - ✅ Verified local production build passes (`npm run build`) after resolving the Vercel-reported Phaser import and JSX namespace issues.
 - ✅ Added explicit TypeScript global types (`node`, `react`, `react-dom`) in `tsconfig.json` to prevent `Cannot find namespace 'JSX'` failures in strict CI/Vercel environments.

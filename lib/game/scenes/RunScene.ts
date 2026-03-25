@@ -11,12 +11,15 @@ interface RunSceneData {
   session: SessionConfig;
 }
 
+type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact';
+
 export class RunScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
   private player!: Phaser.GameObjects.Arc;
+  private playerFacing!: Phaser.GameObjects.Triangle;
   private enemies!: Phaser.Physics.Arcade.Group;
   private scrapGroup!: Phaser.Physics.Arcade.Group;
   private hp = 100;
@@ -24,6 +27,17 @@ export class RunScene extends Phaser.Scene {
   private scrap = 0;
   private actionCooldown = 0;
   private selectedEvent = RUN_EVENTS[0];
+  private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
+  private controlUnsubscribe?: () => void;
+  private touchState: Record<TouchControl, boolean> = {
+    up: false,
+    down: false,
+    left: false,
+    right: false,
+    action: false,
+    dodge: false,
+    interact: false
+  };
 
   init(data: RunSceneData): void {
     this.bridge = data.bridge;
@@ -36,10 +50,11 @@ export class RunScene extends Phaser.Scene {
     this.cameras.main.setBackgroundColor(zone.hazardColor);
 
     const worldRect = new Phaser.Geom.Rectangle(40, 40, 920, 620);
-    this.add.rectangle(500, 350, worldRect.width, worldRect.height, 0x101418, 0.8).setStrokeStyle(2, 0x5fd4ff, 0.4);
-    this.add.text(56, 50, `${zone.name} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' });
+    this.drawArena(worldRect, zone.name);
 
-    this.player = this.add.circle(140, 120, 14, 0x72ffe7);
+    this.player = this.add.circle(140, 120, 14, 0x72ffe7, 0);
+    this.playerFacing = this.add.triangle(140, 120, 0, 16, 30, 8, 0, 0, 0x72ffe7).setOrigin(0.5, 0.5);
+
     this.physics.add.existing(this.player);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
@@ -53,6 +68,7 @@ export class RunScene extends Phaser.Scene {
     this.physics.add.overlap(this.player, this.scrapGroup, (_, pickup) => {
       pickup.destroy();
       this.collectScrap('common_scrap', 1);
+      this.playTone(760, 0.06, 'square', 0.03);
     });
 
     this.physics.add.overlap(this.player, this.enemies, () => {
@@ -71,6 +87,17 @@ export class RunScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-SHIFT', () => this.dodgeBurst());
     this.input.keyboard?.on('keydown-ESC', () => this.endRun('retreat'));
 
+    this.controlUnsubscribe = this.bridge.on('control', ({ control, active }) => {
+      this.touchState[control] = active;
+      if (active && control === 'action') this.actionBurst();
+      if (active && control === 'dodge') this.dodgeBurst();
+      if (active && control === 'interact') this.tryInteract();
+    });
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.controlUnsubscribe?.();
+      this.controlUnsubscribe = undefined;
+    });
+
     this.time.addEvent({
       delay: 20000,
       loop: true,
@@ -78,6 +105,7 @@ export class RunScene extends Phaser.Scene {
         if (this.session.modules.includes('echo-sensor') || this.session.modules.includes('secret-hunter-rig')) {
           this.spawnScrap(4);
           this.bridge.emit('interactPrompt', { text: 'Echo pulse found hidden caches nearby.' });
+          this.playTone(560, 0.11, 'triangle', 0.045);
         }
       }
     });
@@ -89,14 +117,21 @@ export class RunScene extends Phaser.Scene {
   update(time: number, delta: number): void {
     const tuning = buildPlayerTuning(this.session.modules);
     const velocity = new Phaser.Math.Vector2(0, 0);
-    if (this.cursors.left.isDown || this.wasd.A.isDown) velocity.x = -1;
-    if (this.cursors.right.isDown || this.wasd.D.isDown) velocity.x = 1;
-    if (this.cursors.up.isDown || this.wasd.W.isDown) velocity.y = -1;
-    if (this.cursors.down.isDown || this.wasd.S.isDown) velocity.y = 1;
+    if (this.cursors.left.isDown || this.wasd.A.isDown || this.touchState.left) velocity.x = -1;
+    if (this.cursors.right.isDown || this.wasd.D.isDown || this.touchState.right) velocity.x = 1;
+    if (this.cursors.up.isDown || this.wasd.W.isDown || this.touchState.up) velocity.y = -1;
+    if (this.cursors.down.isDown || this.wasd.S.isDown || this.touchState.down) velocity.y = 1;
 
     velocity.normalize().scale(tuning.moveSpeed);
+    if (velocity.lengthSq() > 0) {
+      this.lastMoveDirection.copy(velocity).normalize();
+    }
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setVelocity(velocity.x, velocity.y);
+
+    this.playerFacing.setPosition(this.player.x, this.player.y);
+    this.playerFacing.setRotation(this.lastMoveDirection.angle() + Math.PI / 2);
 
     this.energy = Math.min(100, this.energy + delta * 0.005);
     this.actionCooldown = Math.max(0, this.actionCooldown - delta);
@@ -124,6 +159,32 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
+    this.add.rectangle(500, 350, worldRect.width, worldRect.height, 0x111926, 0.97).setStrokeStyle(3, 0x5fd4ff, 0.6);
+    for (let x = 50; x < 950; x += 38) {
+      this.add.line(0, 0, x, 40, x, 660, 0x294563, 0.17).setOrigin(0, 0);
+    }
+    for (let y = 50; y < 650; y += 38) {
+      this.add.line(0, 0, 40, y, 960, y, 0x294563, 0.12).setOrigin(0, 0);
+    }
+
+    for (let i = 0; i < 12; i += 1) {
+      const wall = this.add.rectangle(
+        Phaser.Math.Between(100, 890),
+        Phaser.Math.Between(120, 590),
+        Phaser.Math.Between(30, 120),
+        Phaser.Math.Between(16, 44),
+        0x1f2f44,
+        0.6
+      );
+      wall.setRotation(Phaser.Math.FloatBetween(-0.2, 0.2));
+      wall.setStrokeStyle(1, 0x80bfff, 0.35);
+    }
+
+    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' });
+    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' });
+  }
+
   private actionBurst(): void {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
@@ -131,6 +192,7 @@ export class RunScene extends Phaser.Scene {
 
     const strikeRadius = this.add.circle(this.player.x, this.player.y, 45, 0xf9da74, 0.18);
     this.time.delayedCall(120, () => strikeRadius.destroy());
+    this.playTone(220, 0.08, 'sawtooth', 0.06);
 
     this.enemies.children.each((child) => {
       const enemy = child as Phaser.GameObjects.Rectangle;
@@ -142,6 +204,7 @@ export class RunScene extends Phaser.Scene {
         if (hp <= 0) {
           enemy.destroy();
           this.collectScrap('enemy_salvage', 2);
+          this.playTone(130, 0.09, 'triangle', 0.07);
         }
       }
 
@@ -159,6 +222,27 @@ export class RunScene extends Phaser.Scene {
     if (body.velocity.lengthSq() < 1) {
       body.setVelocity(tuning.dashImpulse, 0);
     }
+    this.playTone(460, 0.05, 'square', 0.04);
+  }
+
+  private playTone(frequency: number, seconds: number, type: OscillatorType, gain = 0.04): void {
+    if (!this.session.settings.soundOn) return;
+    if (!(this.sound instanceof Phaser.Sound.WebAudioSoundManager)) return;
+    const { context } = this.sound;
+
+    const osc = context.createOscillator();
+    const amp = context.createGain();
+    osc.type = type;
+    osc.frequency.value = frequency;
+    amp.gain.value = gain;
+    osc.connect(amp);
+    amp.connect(context.destination);
+
+    const now = context.currentTime;
+    amp.gain.setValueAtTime(gain, now);
+    amp.gain.exponentialRampToValueAtTime(0.001, now + seconds);
+    osc.start(now);
+    osc.stop(now + seconds);
   }
 
   private collectScrap(type: LootType, amount: number): void {
@@ -196,8 +280,10 @@ export class RunScene extends Phaser.Scene {
   private spawnEnemies(count: number): void {
     for (let i = 0; i < count; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
-      const enemy = this.add.rectangle(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), 24, 20, 0xff7373);
+      const color = def.id === 'repair-saint' ? 0x89ffab : 0xff7373;
+      const enemy = this.add.rectangle(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), 24, 20, color);
       this.physics.add.existing(enemy);
+      enemy.setStrokeStyle(1, 0xfff1f1, 0.45);
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
