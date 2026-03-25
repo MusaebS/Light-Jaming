@@ -75,6 +75,13 @@ npm run build
 - No server secrets required for this MVP.
 - Saves are local to each device/browser via `localStorage`.
 
+### If Vercel reports Phaser + JSX build errors
+
+- Ensure Phaser imports use namespace form: `import * as Phaser from 'phaser'`.
+- Avoid explicit `JSX.Element` return types in React 19 + Next 15; let TypeScript infer return types.
+- Ensure `next` is upgraded to a patched release (`15.2.6` or newer) to avoid CVE-2025-66478 warnings.
+- Re-run `npm run build` locally before redeploying to confirm CI parity.
+
 ## Systems explained
 
 ### Upgrades
@@ -107,6 +114,8 @@ npm run build
 
 ## Progress log
 
+- ✅ Updated `GameCanvas` to use a type-only Phaser import (`import type { Game }`) so the component avoids unnecessary runtime Phaser bindings while keeping build compatibility.
+- ✅ Verified local production build passes (`npm run build`) after resolving the Vercel-reported Phaser import and JSX namespace issues.
 - ✅ Added explicit TypeScript global types (`node`, `react`, `react-dom`) in `tsconfig.json` to prevent `Cannot find namespace 'JSX'` failures in strict CI/Vercel environments.
 - ✅ Fixed strict TypeScript generic event-handler typing in `GameBridge.on/emit`, resolving Next.js production build failures during Vercel type-checking.
 - ✅ Fixed Phaser `Set#each` callbacks in `RunScene` to return a boolean, resolving strict TypeScript build failures during Vercel deployment.
