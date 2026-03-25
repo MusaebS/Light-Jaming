@@ -20,7 +20,7 @@ export function TouchControls({ bridge }: TouchControlsProps) {
     onMouseLeave: () => emitControl(control, false)
   });
 
-  const tap = (control: 'action' | 'dodge' | 'interact') => () => {
+  const tap = (control: 'action' | 'dodge' | 'interact' | 'pause') => () => {
     bridge.emit('control', { control, active: true });
     setTimeout(() => bridge.emit('control', { control, active: false }), 40);
   };
@@ -39,6 +39,7 @@ export function TouchControls({ bridge }: TouchControlsProps) {
         <button onClick={tap('action')} type="button">Action</button>
         <button onClick={tap('dodge')} type="button">Dodge</button>
         <button onClick={tap('interact')} type="button">Interact</button>
+        <button onClick={tap('pause')} type="button">Pause</button>
       </div>
     </div>
   );

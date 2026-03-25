@@ -12,11 +12,18 @@ interface WorkshopProps {
 }
 
 export function WorkshopPanel({ save, onBuy, onFuse, onStartRun }: WorkshopProps) {
+  const merchantLine = save.player.scrap < 20
+    ? 'Merchant Finch: “Bring me odd bolts, I’ll find a use.”'
+    : 'Merchant Finch: “Your chassis is humming louder. Good sign.”';
+  const rivalLine = save.meta.zoneShortcuts.includes('cathedral-toasters')
+    ? 'Rival Vee: “Cathedral is open. Try not to get toasted first.”'
+    : 'Rival Vee: “Chrome Marsh first. Learn the puddles, then race me.”';
+
   return (
     <section className="panel">
       <h2>Workshop Hub</h2>
-      <p className="muted">Merchant Finch says: “If it hums, it sells. If it sparks, double price.”</p>
-      <p className="muted">Rival Vee: “Race you to the Cathedral vault, tin pilgrim.”</p>
+      <p className="muted">{merchantLine}</p>
+      <p className="muted">{rivalLine}</p>
       <p>Scrap Bank: {save.player.scrap}</p>
       <div className="grid">
         {UPGRADE_DEFS.filter((u) => u.cost > 0).map((upgrade) => {

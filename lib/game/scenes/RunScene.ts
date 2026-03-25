@@ -4,14 +4,14 @@ import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
-import { LootType } from '@/lib/game/types/gameTypes';
+import { LootType, ZoneId } from '@/lib/game/types/gameTypes';
 
 interface RunSceneData {
   bridge: GameBridge;
   session: SessionConfig;
 }
 
-type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact';
+type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
 export class RunScene extends Phaser.Scene {
   private bridge!: GameBridge;
@@ -22,6 +22,7 @@ export class RunScene extends Phaser.Scene {
   private playerFacing!: Phaser.GameObjects.Triangle;
   private enemies!: Phaser.Physics.Arcade.Group;
   private scrapGroup!: Phaser.Physics.Arcade.Group;
+  private junkGroup!: Phaser.Physics.Arcade.Group;
   private hp = 100;
   private energy = 100;
   private scrap = 0;
@@ -30,6 +31,7 @@ export class RunScene extends Phaser.Scene {
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
   private audioUnlocked = false;
+  private paused = false;
   private touchState: Record<TouchControl, boolean> = {
     up: false,
     down: false,
@@ -37,7 +39,8 @@ export class RunScene extends Phaser.Scene {
     right: false,
     action: false,
     dodge: false,
-    interact: false
+    interact: false,
+    pause: false
   };
 
   init(data: RunSceneData): void {
@@ -65,8 +68,10 @@ export class RunScene extends Phaser.Scene {
 
     this.enemies = this.physics.add.group();
     this.scrapGroup = this.physics.add.group();
+    this.junkGroup = this.physics.add.group();
     this.spawnScrap(30);
     this.spawnEnemies(8);
+    this.spawnJunk(zone.id === 'cathedral-toasters' ? 14 : 10);
 
     this.physics.add.overlap(this.player, this.scrapGroup, (_, pickup) => {
       pickup.destroy();
@@ -76,9 +81,17 @@ export class RunScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.player, this.enemies, () => {
       this.hp = Math.max(0, this.hp - 0.22);
+      if (!this.session.settings.reducedShake) {
+        this.cameras.main.shake(60, 0.0014, true);
+      }
       if (this.hp <= 0) {
         this.endRun('shutdown');
       }
+    });
+
+    this.physics.add.overlap(this.player, this.junkGroup, (_, junkNode) => {
+      const node = junkNode as Phaser.GameObjects.Rectangle;
+      this.bridge.emit('interactPrompt', { text: `Break junk mound (${node.getData('hp')} durability) for salvage.` });
     });
 
     const keyboard = this.input.keyboard;
@@ -88,7 +101,7 @@ export class RunScene extends Phaser.Scene {
     this.input.keyboard?.on('keydown-E', () => this.tryInteract());
     this.input.keyboard?.on('keydown-SPACE', () => this.actionBurst());
     this.input.keyboard?.on('keydown-SHIFT', () => this.dodgeBurst());
-    this.input.keyboard?.on('keydown-ESC', () => this.endRun('retreat'));
+    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
     this.input.keyboard?.on('keydown', () => this.unlockAudio(), this);
     this.input.on('pointerdown', () => this.unlockAudio(), this);
 
@@ -97,6 +110,7 @@ export class RunScene extends Phaser.Scene {
       if (active && control === 'action') this.actionBurst();
       if (active && control === 'dodge') this.dodgeBurst();
       if (active && control === 'interact') this.tryInteract();
+      if (active && control === 'pause') this.togglePause();
     });
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.controlUnsubscribe?.();
@@ -116,10 +130,21 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.time.addEvent({ delay: 7000, loop: true, callback: () => this.spawnEnemies(2) });
+    this.time.addEvent({
+      delay: zone.id === 'cathedral-toasters' ? 2200 : 2600,
+      loop: true,
+      callback: () => this.applyZoneHazard(zone.id)
+    });
     this.sendHud('Collect scrap, test action, then decide when to retreat.');
   }
 
   update(time: number, delta: number): void {
+    if (this.paused) {
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0, 0);
+      return;
+    }
+
     const tuning = buildPlayerTuning(this.session.modules);
     const velocity = new Phaser.Math.Vector2(0, 0);
     if (this.cursors.left.isDown || this.wasd.A.isDown || this.touchState.left) velocity.x = -1;
@@ -144,9 +169,23 @@ export class RunScene extends Phaser.Scene {
     this.enemies.children.each((child) => {
       const enemy = child as Phaser.GameObjects.Rectangle;
       const enemyBody = enemy.body as Phaser.Physics.Arcade.Body;
-      this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
+      const enemyId = enemy.getData('id') as string;
+      if (enemyId === 'jealous-cart' && this.scrap > 12) {
+        this.physics.moveTo(enemy, 920, 620, enemy.getData('speed'));
+      } else if (enemyId === 'fridge-mimic') {
+        const nearPlayer = Phaser.Math.Distance.BetweenPoints(enemy, this.player) < 140;
+        enemy.setFillStyle(nearPlayer ? 0xff7373 : 0x7f96a8);
+        if (nearPlayer) {
+          this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
+        } else {
+          enemyBody.setVelocity(0, 0);
+        }
+      } else {
+        this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
+      }
+
       if (enemy.getData('id') === 'repair-saint' && Math.random() < 0.004) {
-        this.hp = Math.min(100, this.hp + 0.3);
+        this.healNearestEnemy(enemy, 2);
       }
       if (this.selectedEvent.id === 'scrap-storm') {
         enemyBody.velocity.scale(1.03);
@@ -188,14 +227,16 @@ export class RunScene extends Phaser.Scene {
 
     for (let i = 0; i < 15; i += 1) {
       const beacon = this.add.circle(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), Phaser.Math.Between(3, 7), 0x63f7ff, 0.3);
-      this.tweens.add({
-        targets: beacon,
-        alpha: { from: 0.2, to: 0.65 },
-        yoyo: true,
-        repeat: -1,
-        duration: Phaser.Math.Between(900, 1800),
-        delay: Phaser.Math.Between(0, 700)
-      });
+      if (!this.session.settings.reducedMotion) {
+        this.tweens.add({
+          targets: beacon,
+          alpha: { from: 0.2, to: 0.65 },
+          yoyo: true,
+          repeat: -1,
+          duration: Phaser.Math.Between(900, 1800),
+          delay: Phaser.Math.Between(0, 700)
+        });
+      }
     }
 
     this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' });
@@ -225,6 +266,22 @@ export class RunScene extends Phaser.Scene {
         }
       }
 
+      return true;
+    });
+
+    this.junkGroup.children.each((child) => {
+      const junk = child as Phaser.GameObjects.Rectangle;
+      if (Phaser.Math.Distance.BetweenPoints(this.player, junk) >= 56) return true;
+      const hp = (junk.getData('hp') as number) - 1;
+      junk.setData('hp', hp);
+      junk.setFillStyle(0xbdc9d4);
+      this.time.delayedCall(90, () => junk.setFillStyle(0x8396a8));
+      if (hp <= 0) {
+        junk.destroy();
+        this.collectScrap('uncommon_component', 3);
+        this.spawnScrap(2);
+        this.bridge.emit('interactPrompt', { text: 'Junk mound cracked open. Salvage spilled out.' });
+      }
       return true;
     });
   }
@@ -350,13 +407,72 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private spawnJunk(count: number): void {
+    for (let i = 0; i < count; i += 1) {
+      const junk = this.add.rectangle(
+        Phaser.Math.Between(110, 900),
+        Phaser.Math.Between(110, 620),
+        Phaser.Math.Between(26, 42),
+        Phaser.Math.Between(20, 32),
+        0x8396a8
+      );
+      junk.setStrokeStyle(1, 0xd8ecff, 0.4);
+      this.physics.add.existing(junk, true);
+      junk.setData('hp', Phaser.Math.Between(2, 4));
+      this.junkGroup.add(junk);
+    }
+  }
+
+  private healNearestEnemy(source: Phaser.GameObjects.Rectangle, amount: number): void {
+    let nearest: Phaser.GameObjects.Rectangle | undefined;
+    let shortest = Number.POSITIVE_INFINITY;
+    this.enemies.children.each((child) => {
+      const candidate = child as Phaser.GameObjects.Rectangle;
+      if (candidate === source) return true;
+      const distance = Phaser.Math.Distance.BetweenPoints(source, candidate);
+      if (distance < shortest) {
+        shortest = distance;
+        nearest = candidate;
+      }
+      return true;
+    });
+    if (!nearest || shortest > 180) return;
+    const maxHp = ENEMIES.find((enemy) => enemy.id === nearest!.getData('id'))?.health ?? 20;
+    nearest.setData('hp', Math.min(maxHp, (nearest.getData('hp') as number) + amount));
+    nearest.setFillStyle(0x9dffb8);
+    this.time.delayedCall(100, () => nearest?.setFillStyle(0xff7373));
+  }
+
+  private applyZoneHazard(zoneId: ZoneId): void {
+    if (this.paused) return;
+    const inHotspot = this.player.x > 300 && this.player.x < 690 && this.player.y > 220 && this.player.y < 500;
+    if (!inHotspot) return;
+
+    if (zoneId === 'chrome-marsh') {
+      this.energy = Math.max(0, this.energy - 4);
+      this.bridge.emit('interactPrompt', { text: 'Conductive puddle drained energy. Route around it next pass.' });
+    } else {
+      this.hp = Math.max(0, this.hp - 4);
+      this.bridge.emit('interactPrompt', { text: 'Heat vent blast! Cathedral routes are tighter but richer.' });
+      if (!this.session.settings.reducedShake) {
+        this.cameras.main.shake(90, 0.0018, true);
+      }
+    }
+  }
+
+  private togglePause(): void {
+    this.paused = !this.paused;
+    this.physics.world.isPaused = this.paused;
+    this.bridge.emit('pauseState', { paused: this.paused });
+  }
+
   private tryInteract(): void {
     if (this.player.x > 860 && this.player.y > 580) {
       this.endRun('retreat');
       return;
     }
 
-    this.bridge.emit('interactPrompt', { text: 'Nothing to interface here yet. Hunt for caches or retreat.' });
+    this.bridge.emit('interactPrompt', { text: 'Rival Vee marked a side route nearby. Break junk mounds or retreat.' });
   }
 
   private sendHud(hint: string): void {

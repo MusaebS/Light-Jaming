@@ -30,6 +30,7 @@ export default function HomePage() {
   const [zone, setZone] = useState<ZoneId>('chrome-marsh');
   const [hud, setHud] = useState<HudPayload>(initialHud);
   const [prompt, setPrompt] = useState('');
+  const [paused, setPaused] = useState(false);
 
   const bridge = useMemo(() => new GameBridge(), []);
 
@@ -57,6 +58,7 @@ export default function HomePage() {
   useEffect(
     () => bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
       setRunning(false);
+      setPaused(false);
       setSave((prev) => {
         const unlocked = blueprintFound && !prev.meta.unlockedUpgrades.includes(blueprintFound)
           ? [...prev.meta.unlockedUpgrades, blueprintFound]
@@ -88,6 +90,14 @@ export default function HomePage() {
         return next;
       });
       setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
+    }),
+    [bridge]
+  );
+
+  useEffect(
+    () => bridge.on('pauseState', ({ paused: next }) => {
+      setPaused(next);
+      setPrompt(next ? 'Paused. Take a breather; your run waits safely.' : 'Back online. Keep scavenging at your pace.');
     }),
     [bridge]
   );
@@ -128,6 +138,7 @@ export default function HomePage() {
 
   const startRun = (): void => {
     setPrompt('Run started. Rival Vee is somewhere nearby...');
+    setPaused(false);
     setRunning(true);
   };
 
@@ -178,6 +189,15 @@ export default function HomePage() {
 
       {running && (
         <>
+          {paused && (
+            <section className="panel">
+              <h3>Paused</h3>
+              <p className="muted">No penalty for breaks. Resume whenever you are ready.</p>
+              <button onClick={() => bridge.emit('control', { control: 'pause', active: true })} type="button">
+                Resume Run
+              </button>
+            </section>
+          )}
           <HudOverlay hud={hud} prompt={prompt} />
           <GameCanvas bridge={bridge} session={{ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }} />
           <TouchControls bridge={bridge} />
@@ -192,6 +212,12 @@ export default function HomePage() {
           <li>Retreat any time (Esc on desktop, Interact near extraction corner).</li>
           <li>Spend scrap on modules and try a new build next run.</li>
         </ol>
+      </section>
+
+      <section className="panel">
+        <h3>Zone Notes</h3>
+        <p className="muted">Chrome Marsh: gentle hazards, destructible junk mounds, and beginner-friendly routes.</p>
+        <p className="muted">Cathedral of Toasters: tighter routes, hotter vents, and richer salvage if you can handle pressure.</p>
       </section>
     </main>
   );
