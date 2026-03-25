@@ -14,7 +14,7 @@ export function HudOverlay({ hud, prompt }: HudOverlayProps) {
       <div>EN {hud.energy}</div>
       <div>Scrap {hud.scrap}</div>
       <div>Modules {hud.modules.length ? hud.modules.join(', ') : 'none'}</div>
-      <div>Event {hud.eventName ?? 'none'}</div>
+      <div>Events {hud.eventName ?? 'none'}</div>
       <p>{prompt || hud.hint}</p>
     </div>
   );
