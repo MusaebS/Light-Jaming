@@ -114,6 +114,8 @@ npm run build
 
 ## Progress log
 
+- ✅ Fixed missing in-run visuals by rendering the player body/outline at full opacity and adding subtle animated arena beacons so action is clearly visible on mobile web.
+- ✅ Reworked synthesized SFX to be created fully from WebAudio oscillators + generated noise (no external assets), with an explicit user-gesture audio unlock path for mobile browsers.
 - ✅ Improved run presentation with richer arena graphics (grid, props, directional player marker, extraction marker) so gameplay is visible and readable on web/mobile.
 - ✅ Fixed mobile touch controls by wiring buttons through `GameBridge` control events directly into Phaser input handling (instead of synthetic keyboard events that mobile browsers can ignore).
 - ✅ Added lightweight synthesized SFX (pickup/action/dodge/event cues) that respect the in-game Sound setting.
