@@ -6,6 +6,6 @@ export class BootScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('run');
+    this.add.text(24, 24, 'Booting Scrap Pilgrim...', { color: '#d9f9ff', fontSize: '18px' });
   }
 }
