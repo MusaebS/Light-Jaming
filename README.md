@@ -107,6 +107,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Added explicit TypeScript global types (`node`, `react`, `react-dom`) in `tsconfig.json` to prevent `Cannot find namespace 'JSX'` failures in strict CI/Vercel environments.
 - ✅ Fixed strict TypeScript generic event-handler typing in `GameBridge.on/emit`, resolving Next.js production build failures during Vercel type-checking.
 - ✅ Fixed Phaser `Set#each` callbacks in `RunScene` to return a boolean, resolving strict TypeScript build failures during Vercel deployment.
 - ✅ Fixed Phaser imports to use namespace imports (`import * as Phaser`) for compatibility with Next.js production builds.
