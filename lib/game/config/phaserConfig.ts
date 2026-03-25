@@ -22,7 +22,7 @@ export function createPhaserGame(
     scene: [BootScene, RunScene],
     callbacks: {
       postBoot: (game) => {
-        game.scene.start('run', { bridge, session });
+        game.scene.start('boot', { bridge, session });
       }
     }
   });
