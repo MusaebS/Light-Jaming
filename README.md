@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Fixed run startup flow so `BootScene` forwards the required `{ bridge, session }` payload into `RunScene`, resolving blank gameplay (no visuals), dead controls, and missing SFX caused by the scene being started without runtime data.
 - ✅ Fixed mobile HUD and comfort-setting layout bugs by stacking comfort toggles cleanly and switching HUD stats to a responsive two-column layout on small screens.
 - ✅ Added an in-run pause/resume flow (Esc on desktop, Pause on touch) with explicit player-respecting messaging and no penalty for taking breaks.
 - ✅ Added zone-specific periodic hazards (Chrome Marsh conductive drain, Cathedral heat vents) to make both zones play differently while staying readable.
