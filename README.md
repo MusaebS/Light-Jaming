@@ -114,6 +114,10 @@ npm run build
 
 ## Progress log
 
+- ✅ Added an in-run pause/resume flow (Esc on desktop, Pause on touch) with explicit player-respecting messaging and no penalty for taking breaks.
+- ✅ Added zone-specific periodic hazards (Chrome Marsh conductive drain, Cathedral heat vents) to make both zones play differently while staying readable.
+- ✅ Added destructible junk mounds that can be broken for salvage, improving tactile scavenging and short-session route decisions.
+- ✅ Improved enemy behavior readability with Jealous Cart flee logic, Fridge Mimic disguise/reveal behavior, and Repair Saint ally-heal support behavior.
 - ✅ Fixed missing in-run visuals by rendering the player body/outline at full opacity and adding subtle animated arena beacons so action is clearly visible on mobile web.
 - ✅ Reworked synthesized SFX to be created fully from WebAudio oscillators + generated noise (no external assets), with an explicit user-gesture audio unlock path for mobile browsers.
 - ✅ Improved run presentation with richer arena graphics (grid, props, directional player marker, extraction marker) so gameplay is visible and readable on web/mobile.

@@ -22,8 +22,9 @@ export interface BridgeEvents {
   pickup: { type: LootType; amount: number };
   runEnd: RunResultPayload;
   interactPrompt: { text: string };
+  pauseState: { paused: boolean };
   control: {
-    control: 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact';
+    control: 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
     active: boolean;
   };
 }
