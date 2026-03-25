@@ -1,36 +1,44 @@
 'use client';
 
-function holdKey(code: string, active: boolean): void {
-  window.dispatchEvent(new KeyboardEvent(active ? 'keydown' : 'keyup', { code, bubbles: true }));
+import { GameBridge } from '@/lib/game/systems/gameBridge';
+
+interface TouchControlsProps {
+  bridge: GameBridge;
 }
 
-export function TouchControls() {
-  const bindHold = (code: string) => ({
-    onTouchStart: () => holdKey(code, true),
-    onTouchEnd: () => holdKey(code, false),
-    onMouseDown: () => holdKey(code, true),
-    onMouseUp: () => holdKey(code, false)
+export function TouchControls({ bridge }: TouchControlsProps) {
+  const emitControl = (control: 'up' | 'down' | 'left' | 'right', active: boolean): void => {
+    bridge.emit('control', { control, active });
+  };
+
+  const bindHold = (control: 'up' | 'down' | 'left' | 'right') => ({
+    onTouchStart: () => emitControl(control, true),
+    onTouchEnd: () => emitControl(control, false),
+    onTouchCancel: () => emitControl(control, false),
+    onMouseDown: () => emitControl(control, true),
+    onMouseUp: () => emitControl(control, false),
+    onMouseLeave: () => emitControl(control, false)
   });
 
-  const tap = (code: string) => () => {
-    holdKey(code, true);
-    setTimeout(() => holdKey(code, false), 40);
+  const tap = (control: 'action' | 'dodge' | 'interact') => () => {
+    bridge.emit('control', { control, active: true });
+    setTimeout(() => bridge.emit('control', { control, active: false }), 40);
   };
 
   return (
     <div className="touch-wrap">
       <div className="touch-left">
-        <button {...bindHold('ArrowUp')} type="button">↑</button>
+        <button {...bindHold('up')} type="button">↑</button>
         <div>
-          <button {...bindHold('ArrowLeft')} type="button">←</button>
-          <button {...bindHold('ArrowDown')} type="button">↓</button>
-          <button {...bindHold('ArrowRight')} type="button">→</button>
+          <button {...bindHold('left')} type="button">←</button>
+          <button {...bindHold('down')} type="button">↓</button>
+          <button {...bindHold('right')} type="button">→</button>
         </div>
       </div>
       <div className="touch-right">
-        <button onClick={tap('Space')} type="button">Action</button>
-        <button onClick={tap('ShiftLeft')} type="button">Dodge</button>
-        <button onClick={tap('KeyE')} type="button">Interact</button>
+        <button onClick={tap('action')} type="button">Action</button>
+        <button onClick={tap('dodge')} type="button">Dodge</button>
+        <button onClick={tap('interact')} type="button">Interact</button>
       </div>
     </div>
   );
