@@ -4,7 +4,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
-import { drawArena, createEnemy, createFacingMarker, createJunk, createPlayer, createScrap, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
+import { drawArena, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
 import { describeRenderMode, pickRenderMode, RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
 import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
@@ -18,6 +18,7 @@ interface RunSceneData {
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
 export class RunScene extends Phaser.Scene {
+  private static readonly DEFAULT_CONTACT_DAMAGE = 0.22;
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -118,8 +119,13 @@ export class RunScene extends Phaser.Scene {
       this.playSfx('pickup');
     });
 
-    this.physics.add.overlap(this.player, this.enemies, () => {
-      this.hp = Math.max(0, this.hp - 0.22);
+    this.physics.add.overlap(this.player, this.enemies, (_, enemyNode) => {
+      const enemy = enemyNode as Phaser.GameObjects.GameObject;
+      const contactDamageValue = enemy.getData('contactDamage');
+      const contactDamage = typeof contactDamageValue === 'number' && Number.isFinite(contactDamageValue)
+        ? contactDamageValue
+        : RunScene.DEFAULT_CONTACT_DAMAGE;
+      this.hp = Math.max(0, this.hp - contactDamage);
       this.markHudDirty();
       if (!this.session.settings.reducedShake) {
         this.cameras.main.shake(60, 0.0014, true);
@@ -538,6 +544,7 @@ export class RunScene extends Phaser.Scene {
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      enemy.setData('contactDamage', def.contactDamage);
       this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
     }
