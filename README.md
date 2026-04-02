@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Centralized Phaser asset loading in `BootScene.preload()` using manifest keys and `getAssetSource(...)`, added loader diagnostics (`loaderror` + completion bridge event), and kept title-scene transition in `create()` so scene flow starts only after preloading completes.
 - ✅ Added dual asset-source manifest support (`inlineSource` + `fileSource`) with `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) resolution plus CSP guidance/fallback documentation for dev/test/prod behavior.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
