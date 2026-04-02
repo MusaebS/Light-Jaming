@@ -74,6 +74,7 @@ npm run build
 - Output handled by Next.js automatically.
 - No server secrets required for this MVP.
 - Saves are local to each device/browser via `localStorage`.
+- Keep Vercel project-level custom headers in sync with `next.config.ts` (or leave Vercel header overrides empty) so app-level CSP and security headers are not accidentally weakened or duplicated.
 
 ### If Vercel reports Phaser + JSX build errors
 
@@ -110,6 +111,27 @@ CSP behavior is environment-aware so dev/test/prod stay functional with the curr
 
 Additional note: development also allows `ws:`/`wss:` in `connect-src` so Next.js HMR remains functional.
 
+### Runtime security headers (`next.config.ts`)
+
+The app now sends a baseline security header set through `headers()` in `next.config.ts` for all routes:
+
+- `Content-Security-Policy`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+The CSP is aligned with the existing asset loading strategy:
+
+- `NEXT_PUBLIC_ASSET_MODE=inline` → `img-src` and `media-src` allow `data:` and `blob:`.
+- `NEXT_PUBLIC_ASSET_MODE=file` → `img-src` and `media-src` allow `blob:` but not `data:`.
+- `NEXT_PUBLIC_ASSET_MODE=auto`:
+  - `NODE_ENV=development` → behaves like inline mode.
+  - `NODE_ENV=test` → behaves like inline mode.
+  - `NODE_ENV=production` → behaves like file mode.
+
+This keeps local dev/test behavior compatible with inline asset-backed scenes while making production default to file-backed assets and a tighter CSP.
+
 ## Systems explained
 
 ### Upgrades
@@ -142,6 +164,7 @@ Additional note: development also allows `ws:`/`wss:` in `connect-src` so Next.j
 
 ## Progress log
 
+- ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
 - ✅ Switched magnet-pulse pickup attraction from frame-modulo polling in `RunScene.update()` to a repeating timed event in `RunScene.create()`, with paused/module guards in the timer callback so pull cadence stays consistent across low/high FPS devices.
 - ✅ Added baseline HTTP security headers in `next.config.ts` (`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`) with environment-aware CSP rules that keep dev/test inline assets working and tighten production defaults.
 - ✅ Centralized `RunScene` input lifecycle cleanup by storing keyboard/pointer handlers in scene fields during `create()` and unregistering each one with `off(...)` inside the `SHUTDOWN` block while preserving bridge unsubscribe cleanup.
