@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
 - ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.

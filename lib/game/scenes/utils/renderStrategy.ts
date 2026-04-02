@@ -21,28 +21,26 @@ const isGraphicsTextureAvailable = (scene: Phaser.Scene): boolean => {
   if (!scene.textures.exists('__WHITE')) {
     return false;
   }
-  const graphics = scene.add.graphics({ x: 0, y: 0 });
+  const graphics = scene.make.graphics({ x: 0, y: 0 });
   graphics.fillStyle(0xffffff, 1);
   graphics.fillRect(0, 0, 8, 8);
   graphics.generateTexture('__render-mode-probe', 8, 8);
   graphics.destroy();
   const available = scene.textures.exists('__render-mode-probe');
-  if (available) {
-    scene.textures.remove('__render-mode-probe');
-  }
+  if (available) scene.textures.remove('__render-mode-probe');
   return available;
 };
 
 const canUseModeA = (scene: Phaser.Scene): boolean => MODE_A_REQUIRED_TEXTURES.every((key) => scene.textures.exists(key));
 const canUseModeB = (scene: Phaser.Scene): boolean => isGraphicsTextureAvailable(scene);
+const canUseModeC = (scene: Phaser.Scene): boolean => scene.game.renderer !== null;
 
 export function pickRenderMode(scene: Phaser.Scene, forcedMode: RenderModeSetting = 'auto'): RenderMode {
-  if (forcedMode !== 'auto') {
-    return forcedMode;
-  }
+  if (forcedMode !== 'auto') return forcedMode;
   if (canUseModeA(scene)) return 'mode-a';
   if (canUseModeB(scene)) return 'mode-b';
-  return 'mode-c';
+  if (canUseModeC(scene)) return 'mode-c';
+  return 'mode-d';
 }
 
 export const describeRenderMode = (mode: RenderMode): string => {
