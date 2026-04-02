@@ -164,6 +164,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
 - ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
 - ✅ Switched magnet-pulse pickup attraction from frame-modulo polling in `RunScene.update()` to a repeating timed event in `RunScene.create()`, with paused/module guards in the timer callback so pull cadence stays consistent across low/high FPS devices.
 - ✅ Added baseline HTTP security headers in `next.config.ts` (`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`) with environment-aware CSP rules that keep dev/test inline assets working and tighten production defaults.

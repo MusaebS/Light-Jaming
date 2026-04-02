@@ -36,6 +36,7 @@ export default function HomePage() {
   const [paused, setPaused] = useState(false);
   const [activeScene, setActiveScene] = useState<SceneKey>('title');
   const [homeView, setHomeView] = useState<HomeView>('home');
+  const [saveHint, setSaveHint] = useState('');
 
   const bridge = useMemo(() => new GameBridge(), []);
   const session = useMemo(
@@ -102,7 +103,7 @@ export default function HomePage() {
                 : prev.meta.zoneShortcuts
           }
         };
-        writeSave(next);
+        persistSave(next);
         return next;
       });
       setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
@@ -136,7 +137,7 @@ export default function HomePage() {
         player: { ...prev.player, scrap: prev.player.scrap - target.cost },
         meta: { ...prev.meta, unlockedUpgrades: [...prev.meta.unlockedUpgrades, id] }
       };
-      writeSave(next);
+      persistSave(next);
       return next;
     });
   };
@@ -155,7 +156,7 @@ export default function HomePage() {
           unlockedUpgrades: [...new Set([...prev.meta.unlockedUpgrades, recipe.resultUpgradeId])]
         }
       };
-      writeSave(next);
+      persistSave(next);
       return next;
     });
   };
@@ -209,6 +210,11 @@ export default function HomePage() {
   return (
     <main>
       <h1>SCRAP PILGRIM</h1>
+      {saveHint && (
+        <section className="panel panel-compact" role="status">
+          <p className="muted">{saveHint}</p>
+        </section>
+      )}
 
       {!running && (
         <>
@@ -233,7 +239,7 @@ export default function HomePage() {
                 onChange={(next) => {
                   const updated = { ...save, settings: next };
                   setSave(updated);
-                  writeSave(updated);
+                  persistSave(updated);
                 }}
                 settings={save.settings}
               />

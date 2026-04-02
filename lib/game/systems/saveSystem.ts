@@ -129,11 +129,17 @@ export function loadSave(): GameSave {
   }
 }
 
-export function writeSave(save: GameSave): void {
+export function writeSave(save: GameSave): boolean {
   if (typeof window === 'undefined') {
-    return;
+    return false;
   }
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(save));
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function clearSave(): void {
