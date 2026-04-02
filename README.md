@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Centralized Phaser asset loading in `BootScene.preload()` using manifest keys and `getAssetSource(...)`, added loader diagnostics (`loaderror` + completion bridge event), and kept title-scene transition in `create()` so scene flow starts only after preloading completes.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
 - ✅ Replaced primitive run-scene placeholders with manifest-driven preloaded sprites, background tiles, and basic player/enemy animations (with body size/offset tuning and dev-only debug placeholder guard).

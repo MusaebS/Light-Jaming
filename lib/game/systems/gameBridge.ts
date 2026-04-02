@@ -37,6 +37,11 @@ export interface BridgeEvents {
     control: 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
     active: boolean;
   };
+  assetLoadComplete: {
+    totalComplete: number;
+    totalFailed: number;
+    totalToLoad: number;
+  };
 }
 
 type EventKey = keyof BridgeEvents;
