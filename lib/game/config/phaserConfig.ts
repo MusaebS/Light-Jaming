@@ -1,6 +1,8 @@
 import * as Phaser from 'phaser';
 import { BootScene } from '@/lib/game/scenes/BootScene';
+import { ResultsScene } from '@/lib/game/scenes/ResultsScene';
 import { RunScene } from '@/lib/game/scenes/RunScene';
+import { TitleScene } from '@/lib/game/scenes/TitleScene';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 
 export function createPhaserGame(
@@ -19,10 +21,10 @@ export function createPhaserGame(
       mode: Phaser.Scale.FIT,
       autoCenter: Phaser.Scale.CENTER_BOTH
     },
-    scene: [BootScene, RunScene],
+    scene: [BootScene, TitleScene, RunScene, ResultsScene],
     callbacks: {
       postBoot: (game) => {
-        game.scene.start('run', { bridge, session });
+        game.scene.start('boot', { bridge, session });
       }
     }
   });

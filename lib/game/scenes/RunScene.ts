@@ -3,6 +3,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
+import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 import { LootType, ZoneId } from '@/lib/game/types/gameTypes';
 
@@ -49,6 +50,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   create(): void {
+    fadeInScene(this);
     const zone = ZONES.find((entry) => entry.id === this.session.zone) ?? ZONES[0];
     this.selectedEvent = Phaser.Utils.Array.GetRandom(RUN_EVENTS);
     this.cameras.main.setBackgroundColor(zone.hazardColor);
@@ -488,12 +490,13 @@ export class RunScene extends Phaser.Scene {
   }
 
   private endRun(outcome: 'retreat' | 'shutdown'): void {
-    this.bridge.emit('runEnd', {
+    const result = {
       outcome,
       extractedScrap: this.scrap,
       blueprintFound: this.scrap > 30 ? 'echo-sensor' : undefined,
       codexUnlock: this.selectedEvent.name
-    });
-    this.scene.stop();
+    };
+    this.bridge.emit('sceneTransition', { from: 'run', to: 'results', reason: 'run-complete' });
+    startSceneWithFade(this, 'results', { bridge: this.bridge, session: this.session, result });
   }
 }
