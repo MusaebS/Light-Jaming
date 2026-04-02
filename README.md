@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Added deterministic RunScene texture fallbacks (player/enemy/tile/scrap + shared props), plus a dev/test in-scene warning banner when fallback visuals are active due to missing assets.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
 - ✅ Replaced primitive run-scene placeholders with manifest-driven preloaded sprites, background tiles, and basic player/enemy animations (with body size/offset tuning and dev-only debug placeholder guard).
