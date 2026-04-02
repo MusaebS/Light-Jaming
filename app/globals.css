@@ -24,6 +24,62 @@ main {
   margin-bottom: 12px;
 }
 
+.panel-compact {
+  padding: 10px;
+}
+
+.action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.action-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  min-height: 140px;
+  border-radius: 10px;
+  border: 1px solid #36566f;
+  background: linear-gradient(180deg, #1a2531, #13202b);
+  color: #dff4ff;
+  padding: 12px;
+  gap: 8px;
+  text-align: left;
+}
+
+.action-play {
+  border-color: #4fc968;
+  box-shadow: inset 0 0 0 1px rgba(79, 201, 104, 0.25);
+}
+
+.action-icon {
+  font-size: 1.25rem;
+}
+
+.action-card em {
+  color: #a6c8d8;
+  font-style: normal;
+  font-size: 0.9rem;
+}
+
+.inline-tools {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.help-journal details summary {
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.help-body {
+  margin-top: 8px;
+}
+
 .settings-list {
   display: grid;
   gap: 8px;
@@ -38,6 +94,39 @@ main {
 
 .settings-option input {
   margin-top: 2px;
+}
+
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.stat-block {
+  margin: 0;
+  border: 1px solid #35576f;
+  border-radius: 8px;
+  background: #15222d;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-block span {
+  color: #9ec5d8;
+  font-size: 0.82rem;
+}
+
+.card-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.card-icon {
+  font-size: 1rem;
 }
 
 .grid {
@@ -56,6 +145,11 @@ main {
   border: 1px solid #36566f;
   border-radius: 8px;
   padding: 8px;
+}
+
+.icon-card small {
+  text-transform: capitalize;
+  color: #9ec5d8;
 }
 
 .start {
@@ -94,6 +188,10 @@ main {
   color: #9ec5d8;
 }
 
+.game-canvas {
+  min-height: 420px;
+}
+
 .touch-wrap {
   display: none;
 }
@@ -104,8 +202,42 @@ main {
 }
 
 @media (max-width: 880px) {
+  main {
+    padding: 10px;
+  }
+
+  .panel {
+    padding: 10px;
+    margin-bottom: 8px;
+  }
+
+  .action-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .action-card {
+    min-height: 96px;
+    gap: 6px;
+  }
+
+  .help-body {
+    max-height: 42vh;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .stats-row {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
   .hud {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    font-size: 0.82rem;
+    margin-bottom: 6px;
+  }
+
+  .game-canvas {
+    min-height: 62vh;
   }
 
   .touch-wrap {
@@ -114,17 +246,18 @@ main {
     gap: 12px;
     position: sticky;
     bottom: 8px;
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
   .touch-left button,
   .touch-right button {
     min-width: 58px;
-    min-height: 44px;
+    min-height: 42px;
     background: #223445;
     color: #d7f0ff;
     border: 1px solid #3f637d;
     border-radius: 8px;
     margin: 3px;
+    font-size: 0.78rem;
   }
 }

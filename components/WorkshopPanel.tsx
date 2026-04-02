@@ -2,7 +2,7 @@
 
 import { FUSION_RECIPES } from '@/lib/game/data/fusion';
 import { UPGRADE_DEFS } from '@/lib/game/data/upgrades';
-import { GameSave } from '@/lib/game/types/gameTypes';
+import { GameSave, UpgradeCategory } from '@/lib/game/types/gameTypes';
 
 interface WorkshopProps {
   save: GameSave;
@@ -11,35 +11,57 @@ interface WorkshopProps {
   onStartRun: () => void;
 }
 
+const CATEGORY_ICON: Record<UpgradeCategory, string> = {
+  movement: '🦿',
+  tool: '🧰',
+  utility: '✨',
+  core: '🔋',
+  sensor: '📡',
+  cosmetic: '🎨'
+};
+
 export function WorkshopPanel({ save, onBuy, onFuse, onStartRun }: WorkshopProps) {
-  const merchantLine = save.player.scrap < 20
-    ? 'Merchant Finch: “Bring me odd bolts, I’ll find a use.”'
-    : 'Merchant Finch: “Your chassis is humming louder. Good sign.”';
-  const rivalLine = save.meta.zoneShortcuts.includes('cathedral-toasters')
-    ? 'Rival Vee: “Cathedral is open. Try not to get toasted first.”'
-    : 'Rival Vee: “Chrome Marsh first. Learn the puddles, then race me.”';
+  const ownedCount = save.meta.unlockedUpgrades.length;
+  const unlockCount = save.meta.zoneShortcuts.length;
 
   return (
     <section className="panel">
-      <h2>Workshop Hub</h2>
-      <p className="muted">{merchantLine}</p>
-      <p className="muted">{rivalLine}</p>
-      <p>Scrap Bank: {save.player.scrap}</p>
+      <h2>🛠 Workshop Hub</h2>
+
+      <div className="stats-row">
+        <article className="stat-block" title="Spend this in the workshop.">
+          <span>💠 Scrap</span>
+          <strong>{save.player.scrap}</strong>
+        </article>
+        <article className="stat-block" title="Total installed modules and fused outcomes.">
+          <span>🧩 Modules</span>
+          <strong>{ownedCount}</strong>
+        </article>
+        <article className="stat-block" title="Unlocked route shortcuts and late-zone access.">
+          <span>🗺 Unlocks</span>
+          <strong>{unlockCount}</strong>
+        </article>
+      </div>
+
       <div className="grid">
         {UPGRADE_DEFS.filter((u) => u.cost > 0).map((upgrade) => {
           const owned = save.meta.unlockedUpgrades.includes(upgrade.id);
           const afford = save.player.scrap >= upgrade.cost;
           return (
             <button
-              className="card"
+              className="card icon-card"
               key={upgrade.id}
               disabled={owned || !afford}
               onClick={() => onBuy(upgrade.id)}
+              title={upgrade.effectText}
               type="button"
             >
-              <strong>{upgrade.name}</strong>
-              <span>{upgrade.effectText}</span>
-              <em>{owned ? 'Installed' : `Cost ${upgrade.cost}`}</em>
+              <div className="card-head">
+                <span aria-hidden="true" className="card-icon">{CATEGORY_ICON[upgrade.category]}</span>
+                <strong>{upgrade.name}</strong>
+              </div>
+              <small>{upgrade.category}</small>
+              <em>{owned ? '✅ Installed' : `💠 ${upgrade.cost}`}</em>
             </button>
           );
         })}
@@ -51,17 +73,27 @@ export function WorkshopPanel({ save, onBuy, onFuse, onStartRun }: WorkshopProps
           const known = save.meta.knownRecipes.includes(recipe.id);
           const canFuse = recipe.parts.every((part) => save.meta.unlockedUpgrades.includes(part));
           return (
-            <button className="card" disabled={!canFuse || known} key={recipe.id} onClick={() => onFuse(recipe.id)} type="button">
-              <strong>{recipe.id}</strong>
-              <span>{recipe.parts.join(' + ')}</span>
-              <em>{known ? 'Known' : canFuse ? 'Fuse' : 'Missing parts'}</em>
+            <button
+              className="card icon-card"
+              disabled={!canFuse || known}
+              key={recipe.id}
+              onClick={() => onFuse(recipe.id)}
+              title={recipe.flavor}
+              type="button"
+            >
+              <div className="card-head">
+                <span aria-hidden="true" className="card-icon">⚗</span>
+                <strong>{recipe.id}</strong>
+              </div>
+              <small>{recipe.parts.join(' + ')}</small>
+              <em>{known ? '✅ Known' : canFuse ? '⚡ Fuse' : '🔒 Parts needed'}</em>
             </button>
           );
         })}
       </div>
 
       <button className="start" onClick={onStartRun} type="button">
-        Leave Workshop → Start Run
+        ▶ Start Run
       </button>
     </section>
   );

@@ -28,18 +28,18 @@ export function TouchControls({ bridge }: TouchControlsProps) {
   return (
     <div className="touch-wrap">
       <div className="touch-left">
-        <button {...bindHold('up')} type="button">↑</button>
+        <button {...bindHold('up')} type="button">⬆ Move</button>
         <div>
-          <button {...bindHold('left')} type="button">←</button>
-          <button {...bindHold('down')} type="button">↓</button>
-          <button {...bindHold('right')} type="button">→</button>
+          <button {...bindHold('left')} type="button">⬅ Move</button>
+          <button {...bindHold('down')} type="button">⬇ Move</button>
+          <button {...bindHold('right')} type="button">➡ Move</button>
         </div>
       </div>
       <div className="touch-right">
-        <button onClick={tap('action')} type="button">Action</button>
-        <button onClick={tap('dodge')} type="button">Dodge</button>
-        <button onClick={tap('interact')} type="button">Interact</button>
-        <button onClick={tap('pause')} type="button">Pause</button>
+        <button onClick={tap('action')} type="button">⚔ Action</button>
+        <button onClick={tap('dodge')} type="button">💨 Dodge</button>
+        <button onClick={tap('interact')} type="button">✋ Interact</button>
+        <button onClick={tap('pause')} type="button">⏸ Pause</button>
       </div>
     </div>
   );

@@ -2,6 +2,7 @@
 
 import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
+import { HelpJournalPanel } from '@/components/HelpJournalPanel';
 import { HudOverlay } from '@/components/HudOverlay';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { TouchControls } from '@/components/TouchControls';
@@ -13,6 +14,8 @@ import { clearSave, defaultSave, loadSave, writeSave } from '@/lib/game/systems/
 import { GameSave, ZoneId } from '@/lib/game/types/gameTypes';
 
 const GameCanvas = dynamic(() => import('@/components/GameCanvas').then((m) => m.GameCanvas), { ssr: false });
+
+type HomeView = 'home' | 'workshop' | 'settings';
 
 const initialHud: HudPayload = {
   health: 100,
@@ -31,6 +34,7 @@ export default function HomePage() {
   const [hud, setHud] = useState<HudPayload>(initialHud);
   const [prompt, setPrompt] = useState('');
   const [paused, setPaused] = useState(false);
+  const [homeView, setHomeView] = useState<HomeView>('home');
 
   const bridge = useMemo(() => new GameBridge(), []);
 
@@ -59,6 +63,7 @@ export default function HomePage() {
     () => bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
       setRunning(false);
       setPaused(false);
+      setHomeView('home');
       setSave((prev) => {
         const unlocked = blueprintFound && !prev.meta.unlockedUpgrades.includes(blueprintFound)
           ? [...prev.meta.unlockedUpgrades, blueprintFound]
@@ -142,59 +147,91 @@ export default function HomePage() {
     setRunning(true);
   };
 
+  const homePanels = (
+    <>
+      <section className="panel action-grid">
+        <button className="action-card action-play" onClick={startRun} type="button">
+          <span aria-hidden="true" className="action-icon">▶</span>
+          <strong>Play</strong>
+          <em>Start a zone run instantly.</em>
+        </button>
+        <button className="action-card" onClick={() => setHomeView('workshop')} type="button">
+          <span aria-hidden="true" className="action-icon">🛠</span>
+          <strong>Workshop</strong>
+          <em>Buy modules and trigger fusions.</em>
+        </button>
+        <button className="action-card" onClick={() => setHomeView('settings')} type="button">
+          <span aria-hidden="true" className="action-icon">⚙</span>
+          <strong>Settings</strong>
+          <em>Audio, visual comfort, and controls.</em>
+        </button>
+      </section>
+
+      <section className="panel panel-compact">
+        <h3>Run Setup</h3>
+        <div className="inline-tools">
+          <label htmlFor="zone-select">Zone</label>
+          <select id="zone-select" onChange={(event) => setZone(event.target.value as ZoneId)} value={zone}>
+            <option value="chrome-marsh">Chrome Marsh</option>
+            <option disabled={!save.meta.zoneShortcuts.includes('cathedral-toasters')} value="cathedral-toasters">
+              Cathedral of Toasters
+            </option>
+          </select>
+          <button onClick={() => { clearSave(); setSave(defaultSave); }} type="button">
+            ♻ Reset Save
+          </button>
+        </div>
+      </section>
+
+      <HelpJournalPanel />
+    </>
+  );
+
   return (
     <main>
       <h1>SCRAP PILGRIM</h1>
-      <p>
-        Leave workshop, scavenge weird machine ruins, choose when to push or retreat, then fuse strange modules into new builds.
-      </p>
-
-      <section className="panel">
-        <h2>Design Summary</h2>
-        <ul>
-          <li>Core loop: workshop → run → risk decisions → retreat → upgrade/fusion → rerun.</li>
-          <li>Motivation pillars: autonomy, competence, world connection, flow, and player respect.</li>
-          <li>Controls: desktop (WASD/Arrows + Space/Shift/E/Esc), mobile touch pad + action buttons.</li>
-          <li>Architecture: Next.js shell/UI, Phaser scene gameplay, event bridge, localStorage saves.</li>
-          <li>MVP scope: 2 zones, 10 upgrades + 2 fusions, 6 enemies, merchant + rival flavor, compact meta-progression.</li>
-        </ul>
-      </section>
-
-      <SettingsPanel
-        onChange={(next) => {
-          const updated = { ...save, settings: next };
-          setSave(updated);
-          writeSave(updated);
-        }}
-        settings={save.settings}
-      />
 
       {!running && (
         <>
-          <section className="panel">
-            <h3>Zone Select</h3>
-            <select onChange={(event) => setZone(event.target.value as ZoneId)} value={zone}>
-              <option value="chrome-marsh">Chrome Marsh</option>
-              <option disabled={!save.meta.zoneShortcuts.includes('cathedral-toasters')} value="cathedral-toasters">
-                Cathedral of Toasters
-              </option>
-            </select>
-            <button onClick={() => { clearSave(); setSave(defaultSave); }} style={{ marginLeft: 8 }} type="button">
-              Reset Save
-            </button>
-          </section>
-          <WorkshopPanel onBuy={buyUpgrade} onFuse={fuse} onStartRun={startRun} save={save} />
+          {homeView === 'home' && homePanels}
+
+          {homeView === 'workshop' && (
+            <>
+              <section className="panel panel-compact">
+                <button onClick={() => setHomeView('home')} type="button">← Back</button>
+              </section>
+              <WorkshopPanel onBuy={buyUpgrade} onFuse={fuse} onStartRun={startRun} save={save} />
+              <HelpJournalPanel />
+            </>
+          )}
+
+          {homeView === 'settings' && (
+            <>
+              <section className="panel panel-compact">
+                <button onClick={() => setHomeView('home')} type="button">← Back</button>
+              </section>
+              <SettingsPanel
+                onChange={(next) => {
+                  const updated = { ...save, settings: next };
+                  setSave(updated);
+                  writeSave(updated);
+                }}
+                settings={save.settings}
+              />
+              <HelpJournalPanel />
+            </>
+          )}
         </>
       )}
 
       {running && (
         <>
           {paused && (
-            <section className="panel">
+            <section className="panel panel-compact">
               <h3>Paused</h3>
               <p className="muted">No penalty for breaks. Resume whenever you are ready.</p>
               <button onClick={() => bridge.emit('control', { control: 'pause', active: true })} type="button">
-                Resume Run
+                ▶ Resume Run
               </button>
             </section>
           )}
@@ -203,22 +240,6 @@ export default function HomePage() {
           <TouchControls bridge={bridge} />
         </>
       )}
-
-      <section className="panel">
-        <h3>Onboarding</h3>
-        <ol>
-          <li>Move immediately and collect glowing scrap.</li>
-          <li>Use Action to fend off enemies and Dodge to escape pressure.</li>
-          <li>Retreat any time (Esc on desktop, Interact near extraction corner).</li>
-          <li>Spend scrap on modules and try a new build next run.</li>
-        </ol>
-      </section>
-
-      <section className="panel">
-        <h3>Zone Notes</h3>
-        <p className="muted">Chrome Marsh: gentle hazards, destructible junk mounds, and beginner-friendly routes.</p>
-        <p className="muted">Cathedral of Toasters: tighter routes, hotter vents, and richer salvage if you can handle pressure.</p>
-      </section>
     </main>
   );
 }
