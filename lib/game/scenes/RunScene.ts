@@ -4,7 +4,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
-import { drawArena, createEnemy, createFacingMarker, createJunk, createPlayer, createScrap, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
+import { drawArena, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
 import { describeRenderMode, pickRenderMode, RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
 import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
@@ -18,6 +18,9 @@ interface RunSceneData {
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
 export class RunScene extends Phaser.Scene {
+  private static readonly MAX_ACTIVE_ENEMIES = 24;
+  private static readonly ENEMY_TTL_MS = 90000;
+  private static readonly ENEMY_CLEANUP_INTERVAL_MS = 8000;
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -171,6 +174,7 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.time.addEvent({ delay: 7000, loop: true, callback: () => this.spawnEnemies(2) });
+    this.time.addEvent({ delay: RunScene.ENEMY_CLEANUP_INTERVAL_MS, loop: true, callback: () => this.cleanupEnemies() });
     this.time.addEvent({
       delay: zone.id === 'cathedral-toasters' ? 2200 : 2600,
       loop: true,
@@ -530,7 +534,10 @@ export class RunScene extends Phaser.Scene {
   }
 
   private spawnEnemies(count: number): void {
-    for (let i = 0; i < count; i += 1) {
+    const activeEnemies = this.enemies.countActive(true);
+    const room = Math.max(0, RunScene.MAX_ACTIVE_ENEMIES - activeEnemies);
+    const spawnCount = Math.min(count, room);
+    for (let i = 0; i < spawnCount; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
       const enemy = this.physics.add.sprite(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), this.resolvedTextures.enemy, 0);
       enemy.setDepth(15);
@@ -538,9 +545,23 @@ export class RunScene extends Phaser.Scene {
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      enemy.setData('spawnedAt', this.time.now);
       this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
     }
+  }
+
+  private cleanupEnemies(): void {
+    const ttlCutoff = this.time.now - RunScene.ENEMY_TTL_MS;
+    this.enemies.children.each((child) => {
+      const enemy = child as WorldEntity;
+      const spawnedAt = (enemy.getData('spawnedAt') as number | undefined) ?? this.time.now;
+      const outsideWorldBounds = !this.physics.world.bounds.contains(enemy.x, enemy.y);
+      if (outsideWorldBounds || spawnedAt < ttlCutoff) {
+        enemy.destroy();
+      }
+      return true;
+    });
   }
 
   private spawnJunk(count: number): void {
