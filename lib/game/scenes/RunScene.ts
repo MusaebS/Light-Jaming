@@ -119,8 +119,13 @@ export class RunScene extends Phaser.Scene {
       this.playSfx('pickup');
     });
 
-    this.physics.add.overlap(this.player, this.enemies, () => {
-      this.hp = Math.max(0, this.hp - 0.22);
+    this.physics.add.overlap(this.player, this.enemies, (_, enemyNode) => {
+      const enemy = enemyNode as Phaser.GameObjects.GameObject;
+      const contactDamageValue = enemy.getData('contactDamage');
+      const contactDamage = typeof contactDamageValue === 'number' && Number.isFinite(contactDamageValue)
+        ? contactDamageValue
+        : RunScene.DEFAULT_CONTACT_DAMAGE;
+      this.hp = Math.max(0, this.hp - contactDamage);
       this.markHudDirty();
       if (!this.session.settings.reducedShake) {
         this.cameras.main.shake(60, 0.0014, true);
