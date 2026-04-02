@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Added deterministic RunScene texture fallbacks (player/enemy/tile/scrap + shared props), plus a dev/test in-scene warning banner when fallback visuals are active due to missing assets.
 - ✅ Centralized Phaser asset loading in `BootScene.preload()` using manifest keys and `getAssetSource(...)`, added loader diagnostics (`loaderror` + completion bridge event), and kept title-scene transition in `create()` so scene flow starts only after preloading completes.
 - ✅ Added dual asset-source manifest support (`inlineSource` + `fileSource`) with `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) resolution plus CSP guidance/fallback documentation for dev/test/prod behavior.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
