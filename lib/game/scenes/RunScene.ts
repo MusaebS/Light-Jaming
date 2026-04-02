@@ -212,11 +212,20 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(this.session.zone)
     });
+    this.time.addEvent({
+      delay: 650,
+      loop: true,
+      callback: () => {
+        if (this.paused) return;
+        if (!this.session.modules.includes('magnet-pulse')) return;
+        this.pullPickups(buildPlayerTuning(this.session.modules).magnetRadius);
+      }
+    });
     this.markHudDirty(`Render mode: ${describeRenderMode(this.renderMode)} · Collect scrap, test action, then decide when to retreat.`);
     this.flushHud();
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     if (this.paused) {
       this.getBody(this.player).setVelocity(0, 0);
       this.flushHud();
@@ -272,10 +281,6 @@ export class RunScene extends Phaser.Scene {
       if (this.selectedEvent.id === 'scrap-storm') enemyBody.velocity.scale(1.03);
       return true;
     });
-
-    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) {
-      this.pullPickups(tuning.magnetRadius);
-    }
 
     if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') {
       this.markHudDirty('You can retreat now, or push deeper for rare salvage.');

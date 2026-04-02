@@ -142,6 +142,7 @@ Additional note: development also allows `ws:`/`wss:` in `connect-src` so Next.j
 
 ## Progress log
 
+- ✅ Switched magnet-pulse pickup attraction from frame-modulo polling in `RunScene.update()` to a repeating timed event in `RunScene.create()`, with paused/module guards in the timer callback so pull cadence stays consistent across low/high FPS devices.
 - ✅ Added baseline HTTP security headers in `next.config.ts` (`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`) with environment-aware CSP rules that keep dev/test inline assets working and tighten production defaults.
 - ✅ Centralized `RunScene` input lifecycle cleanup by storing keyboard/pointer handlers in scene fields during `create()` and unregistering each one with `off(...)` inside the `SHUTDOWN` block while preserving bridge unsubscribe cleanup.
 - ✅ Wired enemy contact damage through `spawnEnemies` and player overlap damage handling, with a safe fallback when legacy enemy data is missing damage values; normalized current enemy defs to preserve existing gameplay damage tuning.
