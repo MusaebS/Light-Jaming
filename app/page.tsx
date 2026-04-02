@@ -38,6 +38,10 @@ export default function HomePage() {
   const [homeView, setHomeView] = useState<HomeView>('home');
 
   const bridge = useMemo(() => new GameBridge(), []);
+  const session = useMemo(
+    () => ({ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }),
+    [zone, save.settings, save.meta.unlockedUpgrades]
+  );
 
   useEffect(() => {
     if (loaded) return;
@@ -46,32 +50,29 @@ export default function HomePage() {
     setLoaded(true);
   }, [loaded]);
 
-  useEffect(
-    () => bridge.on('hud', (payload) => {
+  useEffect(() => {
+    return bridge.on('hud', (payload) => {
       setHud(payload);
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
-  useEffect(
-    () => bridge.on('interactPrompt', ({ text }) => {
+  useEffect(() => {
+    return bridge.on('interactPrompt', ({ text }) => {
       setPrompt(text);
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
-  useEffect(
-    () => bridge.on('sceneTransition', ({ to, reason }) => {
+  useEffect(() => {
+    return bridge.on('sceneTransition', ({ to, reason }) => {
       setActiveScene(to);
       if (reason === 'start-run') {
         setPrompt('Run started. Rival Vee is somewhere nearby...');
       }
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
-  useEffect(
-    () => bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
+  useEffect(() => {
+    return bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
       setPaused(false);
       setHomeView('home');
       setSave((prev) => {
@@ -105,28 +106,25 @@ export default function HomePage() {
         return next;
       });
       setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
-  useEffect(
-    () => bridge.on('shellNavigation', ({ screen }) => {
+  useEffect(() => {
+    return bridge.on('shellNavigation', ({ screen }) => {
       if (screen === 'workshop') {
         setRunning(false);
         setPaused(false);
         setActiveScene('title');
       }
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
-  useEffect(
-    () => bridge.on('pauseState', ({ paused: next }) => {
+  useEffect(() => {
+    return bridge.on('pauseState', ({ paused: next }) => {
       setPaused(next);
       setPrompt(next ? 'Paused. Take a breather; your run waits safely.' : 'Back online. Keep scavenging at your pace.');
-    }),
-    [bridge]
-  );
+    });
+  }, [bridge]);
 
   const buyUpgrade = (id: string): void => {
     const target = UPGRADE_DEFS.find((u) => u.id === id);
@@ -263,7 +261,7 @@ export default function HomePage() {
               <p className="muted">{prompt}</p>
             </section>
           )}
-          <GameCanvas bridge={bridge} session={{ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }} />
+          <GameCanvas bridge={bridge} session={session} />
           {activeScene === 'run' && <TouchControls bridge={bridge} />}
         </>
       )}

@@ -42,6 +42,7 @@ export interface BridgeEvents {
     totalFailed: number;
     totalToLoad: number;
   };
+  sessionUpdate: SessionConfig;
 }
 
 type EventKey = keyof BridgeEvents;

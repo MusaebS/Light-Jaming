@@ -13,17 +13,22 @@ interface GameCanvasProps {
 export function GameCanvas({ bridge, session }: GameCanvasProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const gameRef = useRef<Game | null>(null);
+  const initialSessionRef = useRef(session);
 
   useEffect(() => {
     if (!containerRef.current || gameRef.current) {
       return;
     }
-    gameRef.current = createPhaserGame(containerRef.current, bridge, session);
+    gameRef.current = createPhaserGame(containerRef.current, bridge, initialSessionRef.current);
 
     return () => {
       gameRef.current?.destroy(true);
       gameRef.current = null;
     };
+  }, [bridge]);
+
+  useEffect(() => {
+    bridge.emit('sessionUpdate', session);
   }, [bridge, session]);
 
   return <div className="game-canvas" ref={containerRef} style={{ width: '100%', maxWidth: 1000, margin: '0 auto' }} />;
