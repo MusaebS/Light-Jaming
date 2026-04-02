@@ -26,5 +26,5 @@ export function GameCanvas({ bridge, session }: GameCanvasProps) {
     };
   }, [bridge, session]);
 
-  return <div ref={containerRef} style={{ width: '100%', maxWidth: 1000, margin: '0 auto' }} />;
+  return <div className="game-canvas" ref={containerRef} style={{ width: '100%', maxWidth: 1000, margin: '0 auto' }} />;
 }
