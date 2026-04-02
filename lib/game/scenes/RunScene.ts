@@ -37,6 +37,7 @@ export class RunScene extends Phaser.Scene {
   private hudDirty = false;
   private hudHint = 'Collect scrap, test action, then decide when to retreat.';
   private actionCooldown = 0;
+  private interactPromptCooldowns: Record<string, number> = {};
   private selectedEvent = RUN_EVENTS[0];
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
@@ -131,7 +132,11 @@ export class RunScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.player, this.junkGroup, (_, junkNode) => {
       const node = junkNode as Phaser.GameObjects.GameObject;
-      this.bridge.emit('interactPrompt', { text: `Break junk mound (${node.getData('hp')} durability) for salvage.` });
+      this.emitInteractPromptWithCooldown(
+        'junk-overlap',
+        `Break junk mound (${node.getData('hp')} durability) for salvage.`,
+        350
+      );
     });
 
     const keyboard = this.input.keyboard;
@@ -561,11 +566,11 @@ export class RunScene extends Phaser.Scene {
     if (zoneId === 'chrome-marsh') {
       this.energy = Math.max(0, this.energy - 4);
       this.markHudDirty();
-      this.bridge.emit('interactPrompt', { text: 'Conductive puddle drained energy. Route around it next pass.' });
+      this.emitInteractPromptWithCooldown('hazard-chrome-marsh', 'Conductive puddle drained energy. Route around it next pass.', 450);
     } else {
       this.hp = Math.max(0, this.hp - 4);
       this.markHudDirty();
-      this.bridge.emit('interactPrompt', { text: 'Heat vent blast! Cathedral routes are tighter but richer.' });
+      this.emitInteractPromptWithCooldown('hazard-cathedral', 'Heat vent blast! Cathedral routes are tighter but richer.', 450);
       if (!this.session.settings.reducedShake) this.cameras.main.shake(90, 0.0018, true);
     }
   }
