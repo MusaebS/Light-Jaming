@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Removed the unused `RunScene.drawArena(...)` implementation and kept arena rendering centralized through `lib/game/scenes/utils/renderFactory.ts` to prevent duplicated scene-render logic from diverging.
 - ✅ Hardened save loading with `sanitizeSave(...)` to copy only known fields, reject invalid enum/array values, and fall back to defaults for malformed save data.
 - ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
 - ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
