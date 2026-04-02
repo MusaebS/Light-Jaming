@@ -1,22 +1,25 @@
 import * as Phaser from 'phaser';
-import { ASSETS, getAssetSource } from '@/lib/game/assets/assetManifest';
+import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
+
+interface BootSceneData {
+  bridge: GameBridge;
+  session: SessionConfig;
+}
 
 export class BootScene extends Phaser.Scene {
+  private bridge!: GameBridge;
+  private session!: SessionConfig;
+
   constructor() {
     super('boot');
   }
 
-  preload(): void {
-    Object.values(ASSETS.images).forEach((asset) => {
-      this.load.image(asset.key, getAssetSource(asset));
-    });
-
-    Object.values(ASSETS.spritesheets).forEach((asset) => {
-      this.load.spritesheet(asset.key, getAssetSource(asset), asset.frameConfig);
-    });
+  init(data: BootSceneData): void {
+    this.bridge = data.bridge;
+    this.session = data.session;
   }
 
   create(): void {
-    this.scene.start('run');
+    this.scene.start('title', { bridge: this.bridge, session: this.session });
   }
 }

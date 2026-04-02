@@ -4,6 +4,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
+import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 import { LootType, ZoneId } from '@/lib/game/types/gameTypes';
 
@@ -29,6 +30,8 @@ export class RunScene extends Phaser.Scene {
   private hp = 100;
   private energy = 100;
   private scrap = 0;
+  private hudDirty = false;
+  private hudHint = 'Collect scrap, test action, then decide when to retreat.';
   private actionCooldown = 0;
   private selectedEvent = RUN_EVENTS[0];
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
@@ -52,6 +55,7 @@ export class RunScene extends Phaser.Scene {
   }
 
   create(): void {
+    fadeInScene(this);
     const zone = ZONES.find((entry) => entry.id === this.session.zone) ?? ZONES[0];
     this.selectedEvent = Phaser.Utils.Array.GetRandom(RUN_EVENTS);
     this.cameras.main.setBackgroundColor(zone.hazardColor);
@@ -88,6 +92,7 @@ export class RunScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.player, this.enemies, () => {
       this.hp = Math.max(0, this.hp - 0.22);
+      this.markHudDirty();
       if (!this.session.settings.reducedShake) {
         this.cameras.main.shake(60, 0.0014, true);
       }
@@ -143,13 +148,15 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(zone.id)
     });
-
-    this.sendHud('Collect scrap, test action, then decide when to retreat.');
+    this.markHudDirty('Collect scrap, test action, then decide when to retreat.');
+    this.flushHud();
   }
 
   update(time: number, delta: number): void {
     if (this.paused) {
-      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
+      const body = this.player.body as Phaser.Physics.Arcade.Body;
+      body.setVelocity(0, 0);
+      this.flushHud();
       return;
     }
 
@@ -167,15 +174,11 @@ export class RunScene extends Phaser.Scene {
     this.playerFacing.setPosition(this.player.x, this.player.y);
     this.playerFacing.setRotation(this.lastMoveDirection.angle() + Math.PI / 2);
 
-    if (this.actionCooldown > 0) {
-      this.player.play(ASSETS.anims.playerAction, true);
-    } else if (velocity.lengthSq() > 0) {
-      this.player.play(ASSETS.anims.playerWalk, true);
-    } else {
-      this.player.play(ASSETS.anims.playerIdle, true);
+    const nextEnergy = Math.min(100, this.energy + delta * 0.005);
+    if (nextEnergy !== this.energy) {
+      this.energy = nextEnergy;
+      this.markHudDirty();
     }
-
-    this.energy = Math.min(100, this.energy + delta * 0.005);
     this.actionCooldown = Math.max(0, this.actionCooldown - delta);
 
     this.enemies.children.each((child) => {
@@ -207,8 +210,14 @@ export class RunScene extends Phaser.Scene {
       return true;
     });
 
-    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) this.pullPickups(tuning.magnetRadius);
-    if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') this.sendHud('You can retreat now, or push deeper for rare salvage.');
+    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) {
+      this.pullPickups(tuning.magnetRadius);
+    }
+
+    if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') {
+      this.markHudDirty('You can retreat now, or push deeper for rare salvage.');
+    }
+    this.flushHud();
   }
 
   private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
@@ -330,6 +339,7 @@ export class RunScene extends Phaser.Scene {
     if (this.energy < tuning.dashCost) return;
 
     this.energy -= tuning.dashCost;
+    this.markHudDirty();
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.velocity.scale(1.7);
     if (body.velocity.lengthSq() < 1) body.setVelocity(tuning.dashImpulse, 0);
@@ -403,7 +413,7 @@ export class RunScene extends Phaser.Scene {
     const gain = Math.round(amount * multiplier);
     this.scrap += gain;
     this.bridge.emit('pickup', { type, amount: gain });
-    this.sendHud('Scavenge more or retreat with your haul.');
+    this.markHudDirty('Scavenge more or retreat with your haul.');
   }
 
   private pullPickups(radius: number): void {
@@ -484,9 +494,11 @@ export class RunScene extends Phaser.Scene {
 
     if (zoneId === 'chrome-marsh') {
       this.energy = Math.max(0, this.energy - 4);
+      this.markHudDirty();
       this.bridge.emit('interactPrompt', { text: 'Conductive puddle drained energy. Route around it next pass.' });
     } else {
       this.hp = Math.max(0, this.hp - 4);
+      this.markHudDirty();
       this.bridge.emit('interactPrompt', { text: 'Heat vent blast! Cathedral routes are tighter but richer.' });
       if (!this.session.settings.reducedShake) this.cameras.main.shake(90, 0.0018, true);
     }
@@ -496,10 +508,8 @@ export class RunScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.physics.world.isPaused = this.paused;
     this.bridge.emit('pauseState', { paused: this.paused });
-
-    if (SHOW_DEV_DEBUG && this.physics.world.debugGraphic) {
-      this.physics.world.debugGraphic.setVisible(this.paused);
-    }
+    this.markHudDirty(this.paused ? 'Paused · Take your time. Resume when ready.' : 'Back in action. Route safely.');
+    this.flushHud();
   }
 
   private tryInteract(): void {
@@ -523,13 +533,25 @@ export class RunScene extends Phaser.Scene {
     });
   }
 
+  private markHudDirty(hint?: string): void {
+    if (hint) this.hudHint = hint;
+    this.hudDirty = true;
+  }
+
+  private flushHud(): void {
+    if (!this.hudDirty) return;
+    this.sendHud(this.hudHint);
+    this.hudDirty = false;
+  }
+
   private endRun(outcome: 'retreat' | 'shutdown'): void {
-    this.bridge.emit('runEnd', {
+    const result = {
       outcome,
       extractedScrap: this.scrap,
       blueprintFound: this.scrap > 30 ? 'echo-sensor' : undefined,
       codexUnlock: this.selectedEvent.name
-    });
-    this.scene.stop();
+    };
+    this.bridge.emit('sceneTransition', { from: 'run', to: 'results', reason: 'run-complete' });
+    startSceneWithFade(this, 'results', { bridge: this.bridge, session: this.session, result });
   }
 }

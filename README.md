@@ -117,6 +117,9 @@ npm run build
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
 - ✅ Replaced primitive run-scene placeholders with manifest-driven preloaded sprites, background tiles, and basic player/enemy animations (with body size/offset tuning and dev-only debug placeholder guard).
+- ✅ Refactored the home screen into game-first action panels (Play/Workshop/Settings), moved long-form guidance into a collapsible Help/Journal component, refreshed workshop/touch controls to icon+label UI, and tightened mobile layout spacing to prioritize gameplay canvas.
+- ✅ Improved HUD responsiveness and readability by adding HP/EN icon bars, and fixed run HUD synchronization with a dirty-flag emit flow that updates on health/energy/scrap changes and pause state changes.
+- ✅ Added Phaser title/results scene flow with fade transitions, moved run completion handling into scene-to-scene transitions, and narrowed React orchestration to high-level bridge navigation/state sync.
 - ✅ Fixed mobile HUD and comfort-setting layout bugs by stacking comfort toggles cleanly and switching HUD stats to a responsive two-column layout on small screens.
 - ✅ Added an in-run pause/resume flow (Esc on desktop, Pause on touch) with explicit player-respecting messaging and no penalty for taking breaks.
 - ✅ Added zone-specific periodic hazards (Chrome Marsh conductive drain, Cathedral heat vents) to make both zones play differently while staying readable.
