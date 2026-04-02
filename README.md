@@ -82,6 +82,28 @@ npm run build
 - Ensure `next` is upgraded to a patched release (`15.2.6` or newer) to avoid CVE-2025-66478 warnings.
 - Re-run `npm run build` locally before redeploying to confirm CI parity.
 
+## Asset source mode + CSP
+
+Asset entries now carry both inline and file-backed sources. Source selection is controlled by `NEXT_PUBLIC_ASSET_MODE`:
+
+- `inline`: always use `data:` URIs (`inlineSource`) first.
+- `file`: always use static files from `public/assets` (`fileSource`) first.
+- `auto` (default):
+  - `NODE_ENV=development` → prefer inline source.
+  - `NODE_ENV=test` → prefer inline source (deterministic test behavior).
+  - `NODE_ENV=production` → prefer file source (better CSP compatibility).
+
+Recommended CSP when running inline mode:
+
+```http
+Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:;
+```
+
+If your production CSP blocks `data:` URIs, use either:
+
+- `NEXT_PUBLIC_ASSET_MODE=file`, or
+- `NEXT_PUBLIC_ASSET_MODE=auto` with `NODE_ENV=production` (auto-fallback prefers `fileSource` and falls back to `inlineSource` if needed).
+
 ## Systems explained
 
 ### Upgrades
@@ -114,6 +136,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Added dual asset-source manifest support (`inlineSource` + `fileSource`) with `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) resolution plus CSP guidance/fallback documentation for dev/test/prod behavior.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
 - ✅ Replaced primitive run-scene placeholders with manifest-driven preloaded sprites, background tiles, and basic player/enemy animations (with body size/offset tuning and dev-only debug placeholder guard).
