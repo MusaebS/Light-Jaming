@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Improved HUD responsiveness and readability by adding HP/EN icon bars, and fixed run HUD synchronization with a dirty-flag emit flow that updates on health/energy/scrap changes and pause state changes.
 - ✅ Added Phaser title/results scene flow with fade transitions, moved run completion handling into scene-to-scene transitions, and narrowed React orchestration to high-level bridge navigation/state sync.
 - ✅ Fixed mobile HUD and comfort-setting layout bugs by stacking comfort toggles cleanly and switching HUD stats to a responsive two-column layout on small screens.
 - ✅ Added an in-run pause/resume flow (Esc on desktop, Pause on touch) with explicit player-respecting messaging and no penalty for taking breaks.
