@@ -1,4 +1,5 @@
 import * as Phaser from 'phaser';
+import { ASSETS } from '@/lib/game/assets/assetManifest';
 import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
@@ -13,16 +14,18 @@ interface RunSceneData {
 
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
+const SHOW_DEV_DEBUG = process.env.NODE_ENV !== 'production' && false;
+
 export class RunScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private player!: Phaser.GameObjects.Arc;
-  private playerFacing!: Phaser.GameObjects.Triangle;
+  private player!: Phaser.Physics.Arcade.Sprite;
+  private playerFacing!: Phaser.GameObjects.Image;
   private enemies!: Phaser.Physics.Arcade.Group;
   private scrapGroup!: Phaser.Physics.Arcade.Group;
-  private junkGroup!: Phaser.Physics.Arcade.Group;
+  private junkGroup!: Phaser.Physics.Arcade.StaticGroup;
   private hp = 100;
   private energy = 100;
   private scrap = 0;
@@ -55,20 +58,24 @@ export class RunScene extends Phaser.Scene {
 
     const worldRect = new Phaser.Geom.Rectangle(40, 40, 920, 620);
     this.drawArena(worldRect, zone.name);
+    this.createAnimations();
 
-    this.player = this.add.circle(140, 120, 14, 0x72ffe7, 1);
-    this.player.setStrokeStyle(2, 0xd7fffa, 0.9);
-    this.playerFacing = this.add.triangle(140, 120, 0, 16, 30, 8, 0, 0, 0x72ffe7).setOrigin(0.5, 0.5);
-    this.playerFacing.setStrokeStyle(1, 0xd7fffa, 0.9);
+    this.player = this.physics.add.sprite(140, 120, ASSETS.spritesheets.player.key, 0);
+    this.player.setDepth(20);
+    this.player.play(ASSETS.anims.playerIdle);
 
-    this.physics.add.existing(this.player);
+    this.playerFacing = this.add.image(140, 120, ASSETS.images.uiEnergy.key).setScale(0.9).setAlpha(0.8).setDepth(21);
+
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.setCollideWorldBounds(true);
     body.setBoundsRectangle(worldRect);
+    body.setSize(18, 22);
+    body.setOffset(7, 6);
 
     this.enemies = this.physics.add.group();
     this.scrapGroup = this.physics.add.group();
-    this.junkGroup = this.physics.add.group();
+    this.junkGroup = this.physics.add.staticGroup();
+
     this.spawnScrap(30);
     this.spawnEnemies(8);
     this.spawnJunk(zone.id === 'cathedral-toasters' ? 14 : 10);
@@ -90,7 +97,7 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.physics.add.overlap(this.player, this.junkGroup, (_, junkNode) => {
-      const node = junkNode as Phaser.GameObjects.Rectangle;
+      const node = junkNode as Phaser.Physics.Arcade.Sprite;
       this.bridge.emit('interactPrompt', { text: `Break junk mound (${node.getData('hp')} durability) for salvage.` });
     });
 
@@ -112,6 +119,7 @@ export class RunScene extends Phaser.Scene {
       if (active && control === 'interact') this.tryInteract();
       if (active && control === 'pause') this.togglePause();
     });
+
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.controlUnsubscribe?.();
       this.controlUnsubscribe = undefined;
@@ -135,13 +143,13 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(zone.id)
     });
+
     this.sendHud('Collect scrap, test action, then decide when to retreat.');
   }
 
   update(time: number, delta: number): void {
     if (this.paused) {
-      const body = this.player.body as Phaser.Physics.Arcade.Body;
-      body.setVelocity(0, 0);
+      (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(0, 0);
       return;
     }
 
@@ -153,28 +161,32 @@ export class RunScene extends Phaser.Scene {
     if (this.cursors.down.isDown || this.wasd.S.isDown || this.touchState.down) velocity.y = 1;
 
     velocity.normalize().scale(tuning.moveSpeed);
-    if (velocity.lengthSq() > 0) {
-      this.lastMoveDirection.copy(velocity).normalize();
-    }
+    if (velocity.lengthSq() > 0) this.lastMoveDirection.copy(velocity).normalize();
 
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setVelocity(velocity.x, velocity.y);
-
+    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(velocity.x, velocity.y);
     this.playerFacing.setPosition(this.player.x, this.player.y);
     this.playerFacing.setRotation(this.lastMoveDirection.angle() + Math.PI / 2);
+
+    if (this.actionCooldown > 0) {
+      this.player.play(ASSETS.anims.playerAction, true);
+    } else if (velocity.lengthSq() > 0) {
+      this.player.play(ASSETS.anims.playerWalk, true);
+    } else {
+      this.player.play(ASSETS.anims.playerIdle, true);
+    }
 
     this.energy = Math.min(100, this.energy + delta * 0.005);
     this.actionCooldown = Math.max(0, this.actionCooldown - delta);
 
     this.enemies.children.each((child) => {
-      const enemy = child as Phaser.GameObjects.Rectangle;
+      const enemy = child as Phaser.Physics.Arcade.Sprite;
       const enemyBody = enemy.body as Phaser.Physics.Arcade.Body;
       const enemyId = enemy.getData('id') as string;
       if (enemyId === 'jealous-cart' && this.scrap > 12) {
         this.physics.moveTo(enemy, 920, 620, enemy.getData('speed'));
       } else if (enemyId === 'fridge-mimic') {
         const nearPlayer = Phaser.Math.Distance.BetweenPoints(enemy, this.player) < 140;
-        enemy.setFillStyle(nearPlayer ? 0xff7373 : 0x7f96a8);
+        enemy.setTint(nearPlayer ? 0xff9c9c : 0x9eb0bc);
         if (nearPlayer) {
           this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
         } else {
@@ -184,49 +196,41 @@ export class RunScene extends Phaser.Scene {
         this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
       }
 
-      if (enemy.getData('id') === 'repair-saint' && Math.random() < 0.004) {
-        this.healNearestEnemy(enemy, 2);
-      }
-      if (this.selectedEvent.id === 'scrap-storm') {
-        enemyBody.velocity.scale(1.03);
+      if (enemyId === 'jealous-cart' || enemyId === 'vacuum-wolf') {
+        enemy.play(ASSETS.anims.enemyWalk, true);
       }
 
+      if (enemyId === 'repair-saint' && Math.random() < 0.004) {
+        this.healNearestEnemy(enemy, 2);
+      }
+      if (this.selectedEvent.id === 'scrap-storm') enemyBody.velocity.scale(1.03);
       return true;
     });
 
-    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) {
-      this.pullPickups(tuning.magnetRadius);
-    }
-
-    if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') {
-      this.sendHud('You can retreat now, or push deeper for rare salvage.');
-    }
+    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) this.pullPickups(tuning.magnetRadius);
+    if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') this.sendHud('You can retreat now, or push deeper for rare salvage.');
   }
 
   private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
-    this.add.rectangle(500, 350, worldRect.width, worldRect.height, 0x111926, 0.97).setStrokeStyle(3, 0x5fd4ff, 0.6);
-    for (let x = 50; x < 950; x += 38) {
-      this.add.line(0, 0, x, 40, x, 660, 0x294563, 0.17).setOrigin(0, 0);
-    }
-    for (let y = 50; y < 650; y += 38) {
-      this.add.line(0, 0, 40, y, 960, y, 0x294563, 0.12).setOrigin(0, 0);
-    }
+    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, ASSETS.images.arenaBackground.key).setAlpha(0.96).setDepth(0);
+    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, ASSETS.images.arenaTile.key).setAlpha(0.3).setDepth(1);
 
     for (let i = 0; i < 12; i += 1) {
-      const wall = this.add.rectangle(
-        Phaser.Math.Between(100, 890),
-        Phaser.Math.Between(120, 590),
-        Phaser.Math.Between(30, 120),
-        Phaser.Math.Between(16, 44),
-        0x1f2f44,
-        0.6
-      );
-      wall.setRotation(Phaser.Math.FloatBetween(-0.2, 0.2));
-      wall.setStrokeStyle(1, 0x80bfff, 0.35);
+      this.add
+        .image(Phaser.Math.Between(100, 890), Phaser.Math.Between(120, 590), ASSETS.images.junk.key)
+        .setScale(Phaser.Math.FloatBetween(0.85, 1.25))
+        .setRotation(Phaser.Math.FloatBetween(-0.25, 0.25))
+        .setAlpha(0.3)
+        .setDepth(2);
     }
 
     for (let i = 0; i < 15; i += 1) {
-      const beacon = this.add.circle(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), Phaser.Math.Between(3, 7), 0x63f7ff, 0.3);
+      const beacon = this.add
+        .image(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), ASSETS.images.beacon.key)
+        .setScale(Phaser.Math.FloatBetween(0.7, 1.2))
+        .setAlpha(0.35)
+        .setDepth(3);
+
       if (!this.session.settings.reducedMotion) {
         this.tweens.add({
           targets: beacon,
@@ -239,43 +243,78 @@ export class RunScene extends Phaser.Scene {
       }
     }
 
-    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' });
-    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' });
+    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' }).setDepth(5);
+    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' }).setDepth(5);
+  }
+
+  private createAnimations(): void {
+    if (!this.anims.exists(ASSETS.anims.playerIdle)) {
+      this.anims.create({ key: ASSETS.anims.playerIdle, frames: [{ key: ASSETS.spritesheets.player.key, frame: 0 }], frameRate: 3, repeat: -1 });
+    }
+    if (!this.anims.exists(ASSETS.anims.playerWalk)) {
+      this.anims.create({
+        key: ASSETS.anims.playerWalk,
+        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.player.key, { start: 0, end: 3 }),
+        frameRate: 10,
+        repeat: -1
+      });
+    }
+    if (!this.anims.exists(ASSETS.anims.playerAction)) {
+      this.anims.create({
+        key: ASSETS.anims.playerAction,
+        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.player.key, { frames: [3, 1, 3] }),
+        frameRate: 14,
+        repeat: 0
+      });
+    }
+    if (!this.anims.exists(ASSETS.anims.enemyWalk)) {
+      this.anims.create({
+        key: ASSETS.anims.enemyWalk,
+        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.enemyCart.key, { start: 0, end: 3 }),
+        frameRate: 8,
+        repeat: -1
+      });
+    }
   }
 
   private actionBurst(): void {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
     this.actionCooldown = this.session.modules.includes('arc-welder') ? 520 : 300;
+    this.player.play(ASSETS.anims.playerAction, true);
 
-    const strikeRadius = this.add.circle(this.player.x, this.player.y, 45, 0xf9da74, 0.18);
-    this.time.delayedCall(120, () => strikeRadius.destroy());
+    const strikeFx = this.add
+      .image(this.player.x, this.player.y, ASSETS.images.beacon.key)
+      .setScale(2.5)
+      .setTint(0xf9da74)
+      .setAlpha(0.25)
+      .setDepth(19);
+    this.time.delayedCall(120, () => strikeFx.destroy());
     this.playSfx('action');
 
     this.enemies.children.each((child) => {
-      const enemy = child as Phaser.GameObjects.Rectangle;
+      const enemy = child as Phaser.Physics.Arcade.Sprite;
       if (Phaser.Math.Distance.BetweenPoints(this.player, enemy) < 52) {
         const hp = (enemy.getData('hp') as number) - tuning.actionDamage;
         enemy.setData('hp', hp);
-        enemy.setFillStyle(0xffa3a3);
-        this.time.delayedCall(90, () => enemy.setFillStyle(0xff7373));
+        enemy.setTint(0xffa3a3);
+        this.time.delayedCall(90, () => enemy.setTint(0xff7373));
         if (hp <= 0) {
           enemy.destroy();
           this.collectScrap('enemy_salvage', 2);
           this.playSfx('defeat');
         }
       }
-
       return true;
     });
 
     this.junkGroup.children.each((child) => {
-      const junk = child as Phaser.GameObjects.Rectangle;
+      const junk = child as Phaser.Physics.Arcade.Sprite;
       if (Phaser.Math.Distance.BetweenPoints(this.player, junk) >= 56) return true;
       const hp = (junk.getData('hp') as number) - 1;
       junk.setData('hp', hp);
-      junk.setFillStyle(0xbdc9d4);
-      this.time.delayedCall(90, () => junk.setFillStyle(0x8396a8));
+      junk.setTint(0xc9d4dd);
+      this.time.delayedCall(90, () => junk.setTint(0xffffff));
       if (hp <= 0) {
         junk.destroy();
         this.collectScrap('uncommon_component', 3);
@@ -293,9 +332,7 @@ export class RunScene extends Phaser.Scene {
     this.energy -= tuning.dashCost;
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.velocity.scale(1.7);
-    if (body.velocity.lengthSq() < 1) {
-      body.setVelocity(tuning.dashImpulse, 0);
-    }
+    if (body.velocity.lengthSq() < 1) body.setVelocity(tuning.dashImpulse, 0);
     this.playSfx('dodge');
   }
 
@@ -371,24 +408,23 @@ export class RunScene extends Phaser.Scene {
 
   private pullPickups(radius: number): void {
     this.scrapGroup.children.each((child) => {
-      const pickup = child as Phaser.GameObjects.Arc;
+      const pickup = child as Phaser.Physics.Arcade.Sprite;
       const distance = Phaser.Math.Distance.BetweenPoints(this.player, pickup);
       if (distance <= radius) {
         const vec = new Phaser.Math.Vector2(this.player.x - pickup.x, this.player.y - pickup.y).normalize();
         pickup.x += vec.x * 1.8;
         pickup.y += vec.y * 1.8;
       }
-
       return true;
     });
   }
 
   private spawnScrap(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const x = Phaser.Math.Between(70, 930);
-      const y = Phaser.Math.Between(90, 640);
-      const scrap = this.add.circle(x, y, Phaser.Math.Between(5, 8), 0xffd166, 0.95);
-      this.physics.add.existing(scrap);
+      const scrap = this.physics.add.sprite(Phaser.Math.Between(70, 930), Phaser.Math.Between(90, 640), ASSETS.images.scrap.key);
+      scrap.setScale(Phaser.Math.FloatBetween(0.8, 1.05));
+      scrap.setDepth(14);
+      (scrap.body as Phaser.Physics.Arcade.Body).setSize(10, 10).setOffset(3, 3);
       this.scrapGroup.add(scrap);
     }
   }
@@ -396,38 +432,35 @@ export class RunScene extends Phaser.Scene {
   private spawnEnemies(count: number): void {
     for (let i = 0; i < count; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
-      const color = def.id === 'repair-saint' ? 0x89ffab : 0xff7373;
-      const enemy = this.add.rectangle(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), 24, 20, color);
-      this.physics.add.existing(enemy);
-      enemy.setStrokeStyle(1, 0xfff1f1, 0.45);
+      const enemy = this.physics.add.sprite(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), ASSETS.spritesheets.enemyCart.key, 0);
+      enemy.setDepth(15);
+      enemy.setTint(def.id === 'repair-saint' ? 0x89ffab : 0xff7373);
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      (enemy.body as Phaser.Physics.Arcade.Body).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
     }
   }
 
   private spawnJunk(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const junk = this.add.rectangle(
-        Phaser.Math.Between(110, 900),
-        Phaser.Math.Between(110, 620),
-        Phaser.Math.Between(26, 42),
-        Phaser.Math.Between(20, 32),
-        0x8396a8
-      );
-      junk.setStrokeStyle(1, 0xd8ecff, 0.4);
-      this.physics.add.existing(junk, true);
+      const junk = this.physics.add.staticSprite(Phaser.Math.Between(110, 900), Phaser.Math.Between(110, 620), ASSETS.images.junk.key);
+      junk.setScale(Phaser.Math.FloatBetween(0.85, 1.2));
+      junk.setDepth(11);
       junk.setData('hp', Phaser.Math.Between(2, 4));
+      const body = junk.body as Phaser.Physics.Arcade.StaticBody;
+      body.setSize(24, 18).setOffset(8, 10);
       this.junkGroup.add(junk);
     }
   }
 
-  private healNearestEnemy(source: Phaser.GameObjects.Rectangle, amount: number): void {
-    let nearest: Phaser.GameObjects.Rectangle | undefined;
+  private healNearestEnemy(source: Phaser.Physics.Arcade.Sprite, amount: number): void {
+    let nearest: Phaser.Physics.Arcade.Sprite | undefined;
     let shortest = Number.POSITIVE_INFINITY;
+
     this.enemies.children.each((child) => {
-      const candidate = child as Phaser.GameObjects.Rectangle;
+      const candidate = child as Phaser.Physics.Arcade.Sprite;
       if (candidate === source) return true;
       const distance = Phaser.Math.Distance.BetweenPoints(source, candidate);
       if (distance < shortest) {
@@ -436,11 +469,12 @@ export class RunScene extends Phaser.Scene {
       }
       return true;
     });
+
     if (!nearest || shortest > 180) return;
-    const maxHp = ENEMIES.find((enemy) => enemy.id === nearest!.getData('id'))?.health ?? 20;
+    const maxHp = ENEMIES.find((enemy) => enemy.id === nearest?.getData('id'))?.health ?? 20;
     nearest.setData('hp', Math.min(maxHp, (nearest.getData('hp') as number) + amount));
-    nearest.setFillStyle(0x9dffb8);
-    this.time.delayedCall(100, () => nearest?.setFillStyle(0xff7373));
+    nearest.setTint(0x9dffb8);
+    this.time.delayedCall(100, () => nearest?.setTint(0xff7373));
   }
 
   private applyZoneHazard(zoneId: ZoneId): void {
@@ -454,9 +488,7 @@ export class RunScene extends Phaser.Scene {
     } else {
       this.hp = Math.max(0, this.hp - 4);
       this.bridge.emit('interactPrompt', { text: 'Heat vent blast! Cathedral routes are tighter but richer.' });
-      if (!this.session.settings.reducedShake) {
-        this.cameras.main.shake(90, 0.0018, true);
-      }
+      if (!this.session.settings.reducedShake) this.cameras.main.shake(90, 0.0018, true);
     }
   }
 
@@ -464,6 +496,10 @@ export class RunScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.physics.world.isPaused = this.paused;
     this.bridge.emit('pauseState', { paused: this.paused });
+
+    if (SHOW_DEV_DEBUG && this.physics.world.debugGraphic) {
+      this.physics.world.debugGraphic.setVisible(this.paused);
+    }
   }
 
   private tryInteract(): void {
