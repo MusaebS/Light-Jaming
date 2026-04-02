@@ -26,6 +26,8 @@ export class RunScene extends Phaser.Scene {
   private hp = 100;
   private energy = 100;
   private scrap = 0;
+  private hudDirty = false;
+  private hudHint = 'Collect scrap, test action, then decide when to retreat.';
   private actionCooldown = 0;
   private selectedEvent = RUN_EVENTS[0];
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
@@ -81,6 +83,7 @@ export class RunScene extends Phaser.Scene {
 
     this.physics.add.overlap(this.player, this.enemies, () => {
       this.hp = Math.max(0, this.hp - 0.22);
+      this.markHudDirty();
       if (!this.session.settings.reducedShake) {
         this.cameras.main.shake(60, 0.0014, true);
       }
@@ -135,13 +138,15 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(zone.id)
     });
-    this.sendHud('Collect scrap, test action, then decide when to retreat.');
+    this.markHudDirty('Collect scrap, test action, then decide when to retreat.');
+    this.flushHud();
   }
 
   update(time: number, delta: number): void {
     if (this.paused) {
       const body = this.player.body as Phaser.Physics.Arcade.Body;
       body.setVelocity(0, 0);
+      this.flushHud();
       return;
     }
 
@@ -163,7 +168,11 @@ export class RunScene extends Phaser.Scene {
     this.playerFacing.setPosition(this.player.x, this.player.y);
     this.playerFacing.setRotation(this.lastMoveDirection.angle() + Math.PI / 2);
 
-    this.energy = Math.min(100, this.energy + delta * 0.005);
+    const nextEnergy = Math.min(100, this.energy + delta * 0.005);
+    if (nextEnergy !== this.energy) {
+      this.energy = nextEnergy;
+      this.markHudDirty();
+    }
     this.actionCooldown = Math.max(0, this.actionCooldown - delta);
 
     this.enemies.children.each((child) => {
@@ -199,8 +208,9 @@ export class RunScene extends Phaser.Scene {
     }
 
     if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') {
-      this.sendHud('You can retreat now, or push deeper for rare salvage.');
+      this.markHudDirty('You can retreat now, or push deeper for rare salvage.');
     }
+    this.flushHud();
   }
 
   private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
@@ -291,6 +301,7 @@ export class RunScene extends Phaser.Scene {
     if (this.energy < tuning.dashCost) return;
 
     this.energy -= tuning.dashCost;
+    this.markHudDirty();
     const body = this.player.body as Phaser.Physics.Arcade.Body;
     body.velocity.scale(1.7);
     if (body.velocity.lengthSq() < 1) {
@@ -366,7 +377,7 @@ export class RunScene extends Phaser.Scene {
     const gain = Math.round(amount * multiplier);
     this.scrap += gain;
     this.bridge.emit('pickup', { type, amount: gain });
-    this.sendHud('Scavenge more or retreat with your haul.');
+    this.markHudDirty('Scavenge more or retreat with your haul.');
   }
 
   private pullPickups(radius: number): void {
@@ -450,9 +461,11 @@ export class RunScene extends Phaser.Scene {
 
     if (zoneId === 'chrome-marsh') {
       this.energy = Math.max(0, this.energy - 4);
+      this.markHudDirty();
       this.bridge.emit('interactPrompt', { text: 'Conductive puddle drained energy. Route around it next pass.' });
     } else {
       this.hp = Math.max(0, this.hp - 4);
+      this.markHudDirty();
       this.bridge.emit('interactPrompt', { text: 'Heat vent blast! Cathedral routes are tighter but richer.' });
       if (!this.session.settings.reducedShake) {
         this.cameras.main.shake(90, 0.0018, true);
@@ -464,6 +477,8 @@ export class RunScene extends Phaser.Scene {
     this.paused = !this.paused;
     this.physics.world.isPaused = this.paused;
     this.bridge.emit('pauseState', { paused: this.paused });
+    this.markHudDirty(this.paused ? 'Paused · Take your time. Resume when ready.' : 'Back in action. Route safely.');
+    this.flushHud();
   }
 
   private tryInteract(): void {
@@ -485,6 +500,17 @@ export class RunScene extends Phaser.Scene {
       zone: this.session.zone,
       eventName: this.selectedEvent.name
     });
+  }
+
+  private markHudDirty(hint?: string): void {
+    if (hint) this.hudHint = hint;
+    this.hudDirty = true;
+  }
+
+  private flushHud(): void {
+    if (!this.hudDirty) return;
+    this.sendHud(this.hudHint);
+    this.hudDirty = false;
   }
 
   private endRun(outcome: 'retreat' | 'shutdown'): void {
