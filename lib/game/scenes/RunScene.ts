@@ -4,7 +4,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
-import { drawArena, createEnemy, createFacingMarker, createJunk, createPlayer, createScrap, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
+import { drawArena, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
 import { describeRenderMode, pickRenderMode, RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
 import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
@@ -176,11 +176,20 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(zone.id)
     });
+    this.time.addEvent({
+      delay: 650,
+      loop: true,
+      callback: () => {
+        if (this.paused) return;
+        if (!this.session.modules.includes('magnet-pulse')) return;
+        this.pullPickups(buildPlayerTuning(this.session.modules).magnetRadius);
+      }
+    });
     this.markHudDirty(`Render mode: ${describeRenderMode(this.renderMode)} · Collect scrap, test action, then decide when to retreat.`);
     this.flushHud();
   }
 
-  update(time: number, delta: number): void {
+  update(_time: number, delta: number): void {
     if (this.paused) {
       this.getBody(this.player).setVelocity(0, 0);
       this.flushHud();
@@ -236,10 +245,6 @@ export class RunScene extends Phaser.Scene {
       if (this.selectedEvent.id === 'scrap-storm') enemyBody.velocity.scale(1.03);
       return true;
     });
-
-    if (time % 650 < 16 && this.session.modules.includes('magnet-pulse')) {
-      this.pullPickups(tuning.magnetRadius);
-    }
 
     if (this.scrap >= 34 && this.session.zone === 'chrome-marsh') {
       this.markHudDirty('You can retreat now, or push deeper for rare salvage.');
