@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Added an active-enemy cap in `RunScene.spawnEnemies(...)` using `countActive(true)` room checks, plus periodic stale/out-of-bounds enemy cleanup to stabilize long-run mobile performance.
 - ✅ Removed the unused `RunScene.drawArena(...)` implementation and kept arena rendering centralized through `lib/game/scenes/utils/renderFactory.ts` to prevent duplicated scene-render logic from diverging.
 - ✅ Hardened save loading with `sanitizeSave(...)` to copy only known fields, reject invalid enum/array values, and fall back to defaults for malformed save data.
 - ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
