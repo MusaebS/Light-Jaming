@@ -9,7 +9,7 @@ import { TouchControls } from '@/components/TouchControls';
 import { WorkshopPanel } from '@/components/WorkshopPanel';
 import { FUSION_RECIPES } from '@/lib/game/data/fusion';
 import { UPGRADE_DEFS } from '@/lib/game/data/upgrades';
-import { GameBridge, HudPayload } from '@/lib/game/systems/gameBridge';
+import { GameBridge, HudPayload, SceneKey } from '@/lib/game/systems/gameBridge';
 import { clearSave, defaultSave, loadSave, writeSave } from '@/lib/game/systems/saveSystem';
 import { GameSave, ZoneId } from '@/lib/game/types/gameTypes';
 
@@ -34,7 +34,7 @@ export default function HomePage() {
   const [hud, setHud] = useState<HudPayload>(initialHud);
   const [prompt, setPrompt] = useState('');
   const [paused, setPaused] = useState(false);
-  const [homeView, setHomeView] = useState<HomeView>('home');
+  const [activeScene, setActiveScene] = useState<SceneKey>('title');
 
   const bridge = useMemo(() => new GameBridge(), []);
 
@@ -60,8 +60,17 @@ export default function HomePage() {
   );
 
   useEffect(
+    () => bridge.on('sceneTransition', ({ to, reason }) => {
+      setActiveScene(to);
+      if (reason === 'start-run') {
+        setPrompt('Run started. Rival Vee is somewhere nearby...');
+      }
+    }),
+    [bridge]
+  );
+
+  useEffect(
     () => bridge.on('runEnd', ({ outcome, extractedScrap, blueprintFound, codexUnlock }) => {
-      setRunning(false);
       setPaused(false);
       setHomeView('home');
       setSave((prev) => {
@@ -95,6 +104,17 @@ export default function HomePage() {
         return next;
       });
       setPrompt(outcome === 'retreat' ? 'Clean retreat. Merchant Finch whistles approvingly.' : 'Shutdown, but you still hauled recoverable telemetry.');
+    }),
+    [bridge]
+  );
+
+  useEffect(
+    () => bridge.on('shellNavigation', ({ screen }) => {
+      if (screen === 'workshop') {
+        setRunning(false);
+        setPaused(false);
+        setActiveScene('title');
+      }
     }),
     [bridge]
   );
@@ -142,8 +162,8 @@ export default function HomePage() {
   };
 
   const startRun = (): void => {
-    setPrompt('Run started. Rival Vee is somewhere nearby...');
     setPaused(false);
+    setActiveScene('title');
     setRunning(true);
   };
 
@@ -226,8 +246,8 @@ export default function HomePage() {
 
       {running && (
         <>
-          {paused && (
-            <section className="panel panel-compact">
+          {paused && activeScene === 'run' && (
+            <section className="panel">
               <h3>Paused</h3>
               <p className="muted">No penalty for breaks. Resume whenever you are ready.</p>
               <button onClick={() => bridge.emit('control', { control: 'pause', active: true })} type="button">
@@ -235,9 +255,15 @@ export default function HomePage() {
               </button>
             </section>
           )}
-          <HudOverlay hud={hud} prompt={prompt} />
+          {activeScene === 'run' && <HudOverlay hud={hud} prompt={prompt} />}
+          {activeScene !== 'run' && prompt && (
+            <section className="panel">
+              <h3>Run Flow</h3>
+              <p className="muted">{prompt}</p>
+            </section>
+          )}
           <GameCanvas bridge={bridge} session={{ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }} />
-          <TouchControls bridge={bridge} />
+          {activeScene === 'run' && <TouchControls bridge={bridge} />}
         </>
       )}
     </main>

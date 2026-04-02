@@ -182,6 +182,51 @@ main {
   overflow-wrap: anywhere;
 }
 
+.hud-stat {
+  display: grid;
+  gap: 5px;
+}
+
+.hud-stat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hud-stat-head strong {
+  margin-left: auto;
+}
+
+.hud-icon {
+  width: 1.1rem;
+  text-align: center;
+}
+
+.hud-bar {
+  position: relative;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid #3c5f75;
+  background: #13212f;
+}
+
+.hud-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  transition: width 120ms linear;
+}
+
+.hud-fill.hp {
+  background: linear-gradient(90deg, #ee4d5f, #ff8e6a);
+}
+
+.hud-fill.en {
+  background: linear-gradient(90deg, #3bb4ff, #6be2ff);
+}
+
 .hud p {
   grid-column: 1 / -1;
   margin: 0;

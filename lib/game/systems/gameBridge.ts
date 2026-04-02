@@ -17,10 +17,20 @@ export interface RunResultPayload {
   codexUnlock?: string;
 }
 
+export type SceneKey = 'boot' | 'title' | 'run' | 'results' | 'workshop';
+
+export interface SceneTransitionPayload {
+  from: SceneKey;
+  to: SceneKey;
+  reason: 'boot' | 'start-run' | 'run-complete' | 'return-to-workshop';
+}
+
 export interface BridgeEvents {
   hud: HudPayload;
   pickup: { type: LootType; amount: number };
   runEnd: RunResultPayload;
+  sceneTransition: SceneTransitionPayload;
+  shellNavigation: { screen: 'workshop' | 'game' };
   interactPrompt: { text: string };
   pauseState: { paused: boolean };
   control: {
