@@ -17,7 +17,6 @@ interface RunSceneData {
 
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
-
 export class RunScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private session!: SessionConfig;
@@ -40,6 +39,27 @@ export class RunScene extends Phaser.Scene {
   private controlUnsubscribe?: () => void;
   private audioUnlocked = false;
   private paused = false;
+  private fallbackModeActive = false;
+  private resolvedTextures = {
+    player: ASSETS.spritesheets.player.key,
+    enemy: ASSETS.spritesheets.enemyCart.key,
+    tile: ASSETS.images.arenaTile.key,
+    scrap: ASSETS.images.scrap.key,
+    junk: ASSETS.images.junk.key,
+    beacon: ASSETS.images.beacon.key,
+    arenaBackground: ASSETS.images.arenaBackground.key,
+    uiEnergy: ASSETS.images.uiEnergy.key
+  };
+  private static readonly FALLBACK_TEXTURES = {
+    player: 'fallback-player',
+    enemy: 'fallback-enemy',
+    tile: 'fallback-tile',
+    scrap: 'fallback-scrap',
+    junk: 'fallback-junk',
+    beacon: 'fallback-beacon',
+    arenaBackground: 'fallback-arena-background',
+    uiEnergy: 'fallback-ui-energy'
+  } as const;
   private touchState: Record<TouchControl, boolean> = {
     up: false,
     down: false,
@@ -61,6 +81,7 @@ export class RunScene extends Phaser.Scene {
     const zone = ZONES.find((entry) => entry.id === this.session.zone) ?? ZONES[0];
     this.selectedEvent = Phaser.Utils.Array.GetRandom(RUN_EVENTS);
     this.cameras.main.setBackgroundColor(zone.hazardColor);
+    this.setupFallbackTextures();
 
     this.renderMode = pickRenderMode(this, this.session.settings.renderMode);
     if (this.renderMode === 'mode-b') {
@@ -71,12 +92,11 @@ export class RunScene extends Phaser.Scene {
     drawArena(this, this.renderMode, worldRect, zone.name, this.selectedEvent.name);
     this.createAnimations();
 
-    this.player = createPlayer(this, this.renderMode, 140, 120);
-    this.setDepth(this.player, 20);
-    this.playAnimation(this.player, ASSETS.anims.playerIdle);
+    this.player = this.physics.add.sprite(140, 120, this.resolvedTextures.player, 0);
+    this.player.setDepth(20);
+    this.player.play(ASSETS.anims.playerIdle);
 
-    this.playerFacing = createFacingMarker(this, this.renderMode, 140, 120);
-    this.setDepth(this.playerFacing, 21);
+    this.playerFacing = this.add.image(140, 120, this.resolvedTextures.uiEnergy).setScale(0.9).setAlpha(0.8).setDepth(21);
 
     const playerBody = this.getBody(this.player);
     playerBody.setCollideWorldBounds(true);
@@ -227,15 +247,63 @@ export class RunScene extends Phaser.Scene {
     this.flushHud();
   }
 
+  private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
+    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, this.resolvedTextures.arenaBackground).setAlpha(0.96).setDepth(0);
+    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, this.resolvedTextures.tile).setAlpha(0.3).setDepth(1);
+
+    for (let i = 0; i < 12; i += 1) {
+      this.add
+        .image(Phaser.Math.Between(100, 890), Phaser.Math.Between(120, 590), this.resolvedTextures.junk)
+        .setScale(Phaser.Math.FloatBetween(0.85, 1.25))
+        .setRotation(Phaser.Math.FloatBetween(-0.25, 0.25))
+        .setAlpha(0.3)
+        .setDepth(2);
+    }
+
+    for (let i = 0; i < 15; i += 1) {
+      const beacon = this.add
+        .image(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), this.resolvedTextures.beacon)
+        .setScale(Phaser.Math.FloatBetween(0.7, 1.2))
+        .setAlpha(0.35)
+        .setDepth(3);
+
+      if (!this.session.settings.reducedMotion) {
+        this.tweens.add({
+          targets: beacon,
+          alpha: { from: 0.2, to: 0.65 },
+          yoyo: true,
+          repeat: -1,
+          duration: Phaser.Math.Between(900, 1800),
+          delay: Phaser.Math.Between(0, 700)
+        });
+      }
+    }
+
+    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' }).setDepth(5);
+    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' }).setDepth(5);
+    if (this.fallbackModeActive && process.env.NODE_ENV !== 'production') {
+      this.add
+        .text(56, 72, 'Fallback visuals active (missing texture assets).', {
+          color: '#ffe8a3',
+          backgroundColor: '#482103',
+          fontSize: '12px',
+          padding: { left: 6, right: 6, top: 4, bottom: 4 }
+        })
+        .setDepth(6);
+    }
+  }
+
   private createAnimations(): void {
     if (this.renderMode !== 'mode-a') return;
     if (!this.anims.exists(ASSETS.anims.playerIdle)) {
-      this.anims.create({ key: ASSETS.anims.playerIdle, frames: [{ key: ASSETS.spritesheets.player.key, frame: 0 }], frameRate: 3, repeat: -1 });
+      this.anims.create({ key: ASSETS.anims.playerIdle, frames: [{ key: this.resolvedTextures.player, frame: 0 }], frameRate: 3, repeat: -1 });
     }
     if (!this.anims.exists(ASSETS.anims.playerWalk)) {
       this.anims.create({
         key: ASSETS.anims.playerWalk,
-        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.player.key, { start: 0, end: 3 }),
+        frames: this.resolvedTextures.player === ASSETS.spritesheets.player.key
+          ? this.anims.generateFrameNumbers(this.resolvedTextures.player, { start: 0, end: 3 })
+          : [{ key: this.resolvedTextures.player, frame: 0 }],
         frameRate: 10,
         repeat: -1
       });
@@ -243,7 +311,9 @@ export class RunScene extends Phaser.Scene {
     if (!this.anims.exists(ASSETS.anims.playerAction)) {
       this.anims.create({
         key: ASSETS.anims.playerAction,
-        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.player.key, { frames: [3, 1, 3] }),
+        frames: this.resolvedTextures.player === ASSETS.spritesheets.player.key
+          ? this.anims.generateFrameNumbers(this.resolvedTextures.player, { frames: [3, 1, 3] })
+          : [{ key: this.resolvedTextures.player, frame: 0 }],
         frameRate: 14,
         repeat: 0
       });
@@ -251,20 +321,73 @@ export class RunScene extends Phaser.Scene {
     if (!this.anims.exists(ASSETS.anims.enemyWalk)) {
       this.anims.create({
         key: ASSETS.anims.enemyWalk,
-        frames: this.anims.generateFrameNumbers(ASSETS.spritesheets.enemyCart.key, { start: 0, end: 3 }),
+        frames: this.resolvedTextures.enemy === ASSETS.spritesheets.enemyCart.key
+          ? this.anims.generateFrameNumbers(this.resolvedTextures.enemy, { start: 0, end: 3 })
+          : [{ key: this.resolvedTextures.enemy, frame: 0 }],
         frameRate: 8,
         repeat: -1
       });
     }
   }
 
+  private setupFallbackTextures(): void {
+    const graphics = this.add.graphics();
+    const ensureRectTexture = (key: string, width: number, height: number, color: number, alpha = 1): void => {
+      if (this.textures.exists(key)) return;
+      graphics.clear();
+      graphics.fillStyle(color, alpha);
+      graphics.fillRect(0, 0, width, height);
+      graphics.generateTexture(key, width, height);
+    };
+    const ensureCircleTexture = (key: string, diameter: number, color: number, alpha = 1): void => {
+      if (this.textures.exists(key)) return;
+      graphics.clear();
+      graphics.fillStyle(color, alpha);
+      graphics.fillCircle(diameter / 2, diameter / 2, diameter / 2);
+      graphics.generateTexture(key, diameter, diameter);
+    };
+
+    ensureRectTexture(RunScene.FALLBACK_TEXTURES.player, 32, 32, 0x7ce6ff);
+    ensureRectTexture(RunScene.FALLBACK_TEXTURES.enemy, 28, 24, 0xff8787);
+    ensureRectTexture(RunScene.FALLBACK_TEXTURES.tile, 16, 16, 0x2f3d4a, 0.75);
+    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.scrap, 14, 0xffd980);
+    ensureRectTexture(RunScene.FALLBACK_TEXTURES.junk, 30, 24, 0x7c8f9f, 0.95);
+    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.beacon, 20, 0x7ae8ff, 0.9);
+    ensureRectTexture(RunScene.FALLBACK_TEXTURES.arenaBackground, 32, 32, 0x18242f);
+    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.uiEnergy, 14, 0xc0f3ff);
+    graphics.destroy();
+
+    this.resolvedTextures.player = this.resolveTextureOrFallback(ASSETS.spritesheets.player.key, RunScene.FALLBACK_TEXTURES.player);
+    this.resolvedTextures.enemy = this.resolveTextureOrFallback(ASSETS.spritesheets.enemyCart.key, RunScene.FALLBACK_TEXTURES.enemy);
+    this.resolvedTextures.tile = this.resolveTextureOrFallback(ASSETS.images.arenaTile.key, RunScene.FALLBACK_TEXTURES.tile);
+    this.resolvedTextures.scrap = this.resolveTextureOrFallback(ASSETS.images.scrap.key, RunScene.FALLBACK_TEXTURES.scrap);
+    this.resolvedTextures.junk = this.resolveTextureOrFallback(ASSETS.images.junk.key, RunScene.FALLBACK_TEXTURES.junk);
+    this.resolvedTextures.beacon = this.resolveTextureOrFallback(ASSETS.images.beacon.key, RunScene.FALLBACK_TEXTURES.beacon);
+    this.resolvedTextures.arenaBackground = this.resolveTextureOrFallback(
+      ASSETS.images.arenaBackground.key,
+      RunScene.FALLBACK_TEXTURES.arenaBackground
+    );
+    this.resolvedTextures.uiEnergy = this.resolveTextureOrFallback(ASSETS.images.uiEnergy.key, RunScene.FALLBACK_TEXTURES.uiEnergy);
+  }
+
+  private resolveTextureOrFallback(key: string, fallbackKey: string): string {
+    if (this.textures.exists(key)) return key;
+    this.fallbackModeActive = true;
+    return fallbackKey;
+  }
+
   private actionBurst(): void {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
     this.actionCooldown = this.session.modules.includes('arc-welder') ? 520 : 300;
-    this.playAnimation(this.player, ASSETS.anims.playerAction);
+    this.player.play(ASSETS.anims.playerAction, true);
 
-    const strikeFx = this.add.circle(this.player.x, this.player.y, 22, 0xf9da74, 0.25).setDepth(19);
+    const strikeFx = this.add
+      .image(this.player.x, this.player.y, this.resolvedTextures.beacon)
+      .setScale(2.5)
+      .setTint(0xf9da74)
+      .setAlpha(0.25)
+      .setDepth(19);
     this.time.delayedCall(120, () => strikeFx.destroy());
     this.playSfx('action');
 
@@ -398,9 +521,10 @@ export class RunScene extends Phaser.Scene {
 
   private spawnScrap(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const scrap = createScrap(this, this.renderMode, Phaser.Math.Between(70, 930), Phaser.Math.Between(90, 640));
-      this.setDepth(scrap, 14);
-      this.getBody(scrap).setSize(10, 10).setOffset(3, 3);
+      const scrap = this.physics.add.sprite(Phaser.Math.Between(70, 930), Phaser.Math.Between(90, 640), this.resolvedTextures.scrap);
+      scrap.setScale(Phaser.Math.FloatBetween(0.8, 1.05));
+      scrap.setDepth(14);
+      (scrap.body as Phaser.Physics.Arcade.Body).setSize(10, 10).setOffset(3, 3);
       this.scrapGroup.add(scrap);
     }
   }
@@ -408,9 +532,9 @@ export class RunScene extends Phaser.Scene {
   private spawnEnemies(count: number): void {
     for (let i = 0; i < count; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
-      const enemy = createEnemy(this, this.renderMode, Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620));
-      this.setDepth(enemy, 15);
-      this.setTint(enemy, def.id === 'repair-saint' ? 0x89ffab : 0xff7373);
+      const enemy = this.physics.add.sprite(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), this.resolvedTextures.enemy, 0);
+      enemy.setDepth(15);
+      enemy.setTint(def.id === 'repair-saint' ? 0x89ffab : 0xff7373);
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
@@ -421,8 +545,9 @@ export class RunScene extends Phaser.Scene {
 
   private spawnJunk(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const junk = createJunk(this, this.renderMode, Phaser.Math.Between(110, 900), Phaser.Math.Between(110, 620));
-      this.setDepth(junk, 11);
+      const junk = this.physics.add.staticSprite(Phaser.Math.Between(110, 900), Phaser.Math.Between(110, 620), this.resolvedTextures.junk);
+      junk.setScale(Phaser.Math.FloatBetween(0.85, 1.2));
+      junk.setDepth(11);
       junk.setData('hp', Phaser.Math.Between(2, 4));
       const body = this.getBody(junk);
       body.setSize(24, 18).setOffset(8, 10);
