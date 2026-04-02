@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Centralized `RunScene` input lifecycle cleanup by storing keyboard/pointer handlers in scene fields during `create()` and unregistering each one with `off(...)` inside the `SHUTDOWN` block while preserving bridge unsubscribe cleanup.
 - ✅ Wired enemy contact damage through `spawnEnemies` and player overlap damage handling, with a safe fallback when legacy enemy data is missing damage values; normalized current enemy defs to preserve existing gameplay damage tuning.
 - ✅ Added a small Phaser-clock prompt cooldown helper in `RunScene` for high-frequency junk-overlap and zone-hazard prompt emissions to prevent UI spam while keeping interactions responsive.
 - ✅ Prevented Phaser re-creation on shell HUD/prompt updates by memoizing run session props in `app/page.tsx`, splitting `GameCanvas` init vs. runtime session updates, and wiring `RunScene` to apply `sessionUpdate` changes in-place.

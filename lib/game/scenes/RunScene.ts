@@ -148,12 +148,19 @@ export class RunScene extends Phaser.Scene {
     this.cursors = keyboard!.createCursorKeys();
     this.wasd = keyboard!.addKeys('W,S,A,D,E,SPACE,SHIFT,ESC') as Record<string, Phaser.Input.Keyboard.Key>;
 
-    this.input.keyboard?.on('keydown-E', () => this.tryInteract());
-    this.input.keyboard?.on('keydown-SPACE', () => this.actionBurst());
-    this.input.keyboard?.on('keydown-SHIFT', () => this.dodgeBurst());
-    this.input.keyboard?.on('keydown-ESC', () => this.togglePause());
-    this.input.keyboard?.on('keydown', () => this.unlockAudio(), this);
-    this.input.on('pointerdown', () => this.unlockAudio(), this);
+    this.onKeydownE = () => this.tryInteract();
+    this.onKeydownSpace = () => this.actionBurst();
+    this.onKeydownShift = () => this.dodgeBurst();
+    this.onKeydownEsc = () => this.togglePause();
+    this.onAnyKeydown = () => this.unlockAudio();
+    this.onPointerDown = () => this.unlockAudio();
+
+    this.input.keyboard?.on('keydown-E', this.onKeydownE);
+    this.input.keyboard?.on('keydown-SPACE', this.onKeydownSpace);
+    this.input.keyboard?.on('keydown-SHIFT', this.onKeydownShift);
+    this.input.keyboard?.on('keydown-ESC', this.onKeydownEsc);
+    this.input.keyboard?.on('keydown', this.onAnyKeydown);
+    this.input.on('pointerdown', this.onPointerDown);
 
     this.controlUnsubscribe = this.bridge.on('control', ({ control, active }) => {
       this.touchState[control] = active;
@@ -167,6 +174,19 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.input.keyboard?.off('keydown-E', this.onKeydownE);
+      this.input.keyboard?.off('keydown-SPACE', this.onKeydownSpace);
+      this.input.keyboard?.off('keydown-SHIFT', this.onKeydownShift);
+      this.input.keyboard?.off('keydown-ESC', this.onKeydownEsc);
+      this.input.keyboard?.off('keydown', this.onAnyKeydown);
+      this.input.off('pointerdown', this.onPointerDown);
+
+      this.onKeydownE = undefined;
+      this.onKeydownSpace = undefined;
+      this.onKeydownShift = undefined;
+      this.onKeydownEsc = undefined;
+      this.onAnyKeydown = undefined;
+      this.onPointerDown = undefined;
       this.controlUnsubscribe?.();
       this.controlUnsubscribe = undefined;
       this.sessionUpdateUnsubscribe?.();
