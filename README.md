@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Updated all `app/page.tsx` bridge event subscriptions (`hud`, `interactPrompt`, `sceneTransition`, `runEnd`, `shellNavigation`, `pauseState`) so each React effect directly returns `bridge.on(...)` unsubscribe callbacks, preventing dangling listeners on unmount.
 - ✅ Added an active-enemy cap in `RunScene.spawnEnemies(...)` using `countActive(true)` room checks, plus periodic stale/out-of-bounds enemy cleanup to stabilize long-run mobile performance.
 - ✅ Removed the unused `RunScene.drawArena(...)` implementation and kept arena rendering centralized through `lib/game/scenes/utils/renderFactory.ts` to prevent duplicated scene-render logic from diverging.
 - ✅ Hardened save loading with `sanitizeSave(...)` to copy only known fields, reject invalid enum/array values, and fall back to defaults for malformed save data.
