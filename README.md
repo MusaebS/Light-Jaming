@@ -74,6 +74,7 @@ npm run build
 - Output handled by Next.js automatically.
 - No server secrets required for this MVP.
 - Saves are local to each device/browser via `localStorage`.
+- Keep Vercel project-level custom headers in sync with `next.config.ts` (or leave Vercel header overrides empty) so app-level CSP and security headers are not accidentally weakened or duplicated.
 
 ### If Vercel reports Phaser + JSX build errors
 
@@ -93,16 +94,43 @@ Asset entries now carry both inline and file-backed sources. Source selection is
   - `NODE_ENV=test` → prefer inline source (deterministic test behavior).
   - `NODE_ENV=production` → prefer file source (better CSP compatibility).
 
-Recommended CSP when running inline mode:
+Security headers are applied in `next.config.ts` via `headers()` with a baseline set:
 
-```http
-Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:;
-```
+- `Content-Security-Policy`
+- `X-Content-Type-Options: nosniff`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-Frame-Options: DENY`
 
-If your production CSP blocks `data:` URIs, use either:
+CSP behavior is environment-aware so dev/test/prod stay functional with the current asset strategy:
 
-- `NEXT_PUBLIC_ASSET_MODE=file`, or
-- `NEXT_PUBLIC_ASSET_MODE=auto` with `NODE_ENV=production` (auto-fallback prefers `fileSource` and falls back to `inlineSource` if needed).
+- `NEXT_PUBLIC_ASSET_MODE=inline` → allows `data:` for `img-src` + `media-src` in every environment.
+- `NEXT_PUBLIC_ASSET_MODE=file` → does not allow `data:` for `img-src` + `media-src`.
+- `NEXT_PUBLIC_ASSET_MODE=auto` (default):
+  - `NODE_ENV=development` and `NODE_ENV=test` → allows `data:` for inline-first behavior.
+  - `NODE_ENV=production` → removes `data:` from `img-src` + `media-src` for a tighter default policy.
+
+Additional note: development also allows `ws:`/`wss:` in `connect-src` so Next.js HMR remains functional.
+
+### Runtime security headers (`next.config.ts`)
+
+The app now sends a baseline security header set through `headers()` in `next.config.ts` for all routes:
+
+- `Content-Security-Policy`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+The CSP is aligned with the existing asset loading strategy:
+
+- `NEXT_PUBLIC_ASSET_MODE=inline` → `img-src` and `media-src` allow `data:` and `blob:`.
+- `NEXT_PUBLIC_ASSET_MODE=file` → `img-src` and `media-src` allow `blob:` but not `data:`.
+- `NEXT_PUBLIC_ASSET_MODE=auto`:
+  - `NODE_ENV=development` → behaves like inline mode.
+  - `NODE_ENV=test` → behaves like inline mode.
+  - `NODE_ENV=production` → behaves like file mode.
+
+This keeps local dev/test behavior compatible with inline asset-backed scenes while making production default to file-backed assets and a tighter CSP.
 
 ## Systems explained
 
@@ -137,6 +165,17 @@ If your production CSP blocks `data:` URIs, use either:
 ## Progress log
 
 - ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
+- ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
+- ✅ Switched magnet-pulse pickup attraction from frame-modulo polling in `RunScene.update()` to a repeating timed event in `RunScene.create()`, with paused/module guards in the timer callback so pull cadence stays consistent across low/high FPS devices.
+- ✅ Added baseline HTTP security headers in `next.config.ts` (`Content-Security-Policy`, `X-Content-Type-Options`, `Referrer-Policy`, `X-Frame-Options`) with environment-aware CSP rules that keep dev/test inline assets working and tighten production defaults.
+- ✅ Centralized `RunScene` input lifecycle cleanup by storing keyboard/pointer handlers in scene fields during `create()` and unregistering each one with `off(...)` inside the `SHUTDOWN` block while preserving bridge unsubscribe cleanup.
+- ✅ Wired enemy contact damage through `spawnEnemies` and player overlap damage handling, with a safe fallback when legacy enemy data is missing damage values; normalized current enemy defs to preserve existing gameplay damage tuning.
+- ✅ Added a small Phaser-clock prompt cooldown helper in `RunScene` for high-frequency junk-overlap and zone-hazard prompt emissions to prevent UI spam while keeping interactions responsive.
+- ✅ Prevented Phaser re-creation on shell HUD/prompt updates by memoizing run session props in `app/page.tsx`, splitting `GameCanvas` init vs. runtime session updates, and wiring `RunScene` to apply `sessionUpdate` changes in-place.
+- ✅ Updated all `app/page.tsx` bridge event subscriptions (`hud`, `interactPrompt`, `sceneTransition`, `runEnd`, `shellNavigation`, `pauseState`) so each React effect directly returns `bridge.on(...)` unsubscribe callbacks, preventing dangling listeners on unmount.
+- ✅ Added an active-enemy cap in `RunScene.spawnEnemies(...)` using `countActive(true)` room checks, plus periodic stale/out-of-bounds enemy cleanup to stabilize long-run mobile performance.
+- ✅ Removed the unused `RunScene.drawArena(...)` implementation and kept arena rendering centralized through `lib/game/scenes/utils/renderFactory.ts` to prevent duplicated scene-render logic from diverging.
+- ✅ Hardened save loading with `sanitizeSave(...)` to copy only known fields, reject invalid enum/array values, and fall back to defaults for malformed save data.
 - ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
 - ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
 - ✅ Added deterministic RunScene texture fallbacks (player/enemy/tile/scrap + shared props), plus a dev/test in-scene warning banner when fallback visuals are active due to missing assets.
