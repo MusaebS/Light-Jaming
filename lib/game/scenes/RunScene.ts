@@ -4,7 +4,7 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
-import { drawArena, createEnemy, createFacingMarker, createJunk, createPlayer, createScrap, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
+import { drawArena, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
 import { describeRenderMode, pickRenderMode, RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
 import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
@@ -18,6 +18,9 @@ interface RunSceneData {
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
 export class RunScene extends Phaser.Scene {
+  private static readonly MAX_ACTIVE_ENEMIES = 24;
+  private static readonly ENEMY_TTL_MS = 90000;
+  private static readonly ENEMY_CLEANUP_INTERVAL_MS = 8000;
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -43,21 +46,17 @@ export class RunScene extends Phaser.Scene {
   private resolvedTextures = {
     player: ASSETS.spritesheets.player.key,
     enemy: ASSETS.spritesheets.enemyCart.key,
-    tile: ASSETS.images.arenaTile.key,
     scrap: ASSETS.images.scrap.key,
     junk: ASSETS.images.junk.key,
     beacon: ASSETS.images.beacon.key,
-    arenaBackground: ASSETS.images.arenaBackground.key,
     uiEnergy: ASSETS.images.uiEnergy.key
   };
   private static readonly FALLBACK_TEXTURES = {
     player: 'fallback-player',
     enemy: 'fallback-enemy',
-    tile: 'fallback-tile',
     scrap: 'fallback-scrap',
     junk: 'fallback-junk',
     beacon: 'fallback-beacon',
-    arenaBackground: 'fallback-arena-background',
     uiEnergy: 'fallback-ui-energy'
   } as const;
   private touchState: Record<TouchControl, boolean> = {
@@ -171,6 +170,7 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.time.addEvent({ delay: 7000, loop: true, callback: () => this.spawnEnemies(2) });
+    this.time.addEvent({ delay: RunScene.ENEMY_CLEANUP_INTERVAL_MS, loop: true, callback: () => this.cleanupEnemies() });
     this.time.addEvent({
       delay: zone.id === 'cathedral-toasters' ? 2200 : 2600,
       loop: true,
@@ -247,52 +247,6 @@ export class RunScene extends Phaser.Scene {
     this.flushHud();
   }
 
-  private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
-    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, this.resolvedTextures.arenaBackground).setAlpha(0.96).setDepth(0);
-    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, this.resolvedTextures.tile).setAlpha(0.3).setDepth(1);
-
-    for (let i = 0; i < 12; i += 1) {
-      this.add
-        .image(Phaser.Math.Between(100, 890), Phaser.Math.Between(120, 590), this.resolvedTextures.junk)
-        .setScale(Phaser.Math.FloatBetween(0.85, 1.25))
-        .setRotation(Phaser.Math.FloatBetween(-0.25, 0.25))
-        .setAlpha(0.3)
-        .setDepth(2);
-    }
-
-    for (let i = 0; i < 15; i += 1) {
-      const beacon = this.add
-        .image(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), this.resolvedTextures.beacon)
-        .setScale(Phaser.Math.FloatBetween(0.7, 1.2))
-        .setAlpha(0.35)
-        .setDepth(3);
-
-      if (!this.session.settings.reducedMotion) {
-        this.tweens.add({
-          targets: beacon,
-          alpha: { from: 0.2, to: 0.65 },
-          yoyo: true,
-          repeat: -1,
-          duration: Phaser.Math.Between(900, 1800),
-          delay: Phaser.Math.Between(0, 700)
-        });
-      }
-    }
-
-    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' }).setDepth(5);
-    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' }).setDepth(5);
-    if (this.fallbackModeActive && process.env.NODE_ENV !== 'production') {
-      this.add
-        .text(56, 72, 'Fallback visuals active (missing texture assets).', {
-          color: '#ffe8a3',
-          backgroundColor: '#482103',
-          fontSize: '12px',
-          padding: { left: 6, right: 6, top: 4, bottom: 4 }
-        })
-        .setDepth(6);
-    }
-  }
-
   private createAnimations(): void {
     if (this.renderMode !== 'mode-a') return;
     if (!this.anims.exists(ASSETS.anims.playerIdle)) {
@@ -349,24 +303,17 @@ export class RunScene extends Phaser.Scene {
 
     ensureRectTexture(RunScene.FALLBACK_TEXTURES.player, 32, 32, 0x7ce6ff);
     ensureRectTexture(RunScene.FALLBACK_TEXTURES.enemy, 28, 24, 0xff8787);
-    ensureRectTexture(RunScene.FALLBACK_TEXTURES.tile, 16, 16, 0x2f3d4a, 0.75);
     ensureCircleTexture(RunScene.FALLBACK_TEXTURES.scrap, 14, 0xffd980);
     ensureRectTexture(RunScene.FALLBACK_TEXTURES.junk, 30, 24, 0x7c8f9f, 0.95);
     ensureCircleTexture(RunScene.FALLBACK_TEXTURES.beacon, 20, 0x7ae8ff, 0.9);
-    ensureRectTexture(RunScene.FALLBACK_TEXTURES.arenaBackground, 32, 32, 0x18242f);
     ensureCircleTexture(RunScene.FALLBACK_TEXTURES.uiEnergy, 14, 0xc0f3ff);
     graphics.destroy();
 
     this.resolvedTextures.player = this.resolveTextureOrFallback(ASSETS.spritesheets.player.key, RunScene.FALLBACK_TEXTURES.player);
     this.resolvedTextures.enemy = this.resolveTextureOrFallback(ASSETS.spritesheets.enemyCart.key, RunScene.FALLBACK_TEXTURES.enemy);
-    this.resolvedTextures.tile = this.resolveTextureOrFallback(ASSETS.images.arenaTile.key, RunScene.FALLBACK_TEXTURES.tile);
     this.resolvedTextures.scrap = this.resolveTextureOrFallback(ASSETS.images.scrap.key, RunScene.FALLBACK_TEXTURES.scrap);
     this.resolvedTextures.junk = this.resolveTextureOrFallback(ASSETS.images.junk.key, RunScene.FALLBACK_TEXTURES.junk);
     this.resolvedTextures.beacon = this.resolveTextureOrFallback(ASSETS.images.beacon.key, RunScene.FALLBACK_TEXTURES.beacon);
-    this.resolvedTextures.arenaBackground = this.resolveTextureOrFallback(
-      ASSETS.images.arenaBackground.key,
-      RunScene.FALLBACK_TEXTURES.arenaBackground
-    );
     this.resolvedTextures.uiEnergy = this.resolveTextureOrFallback(ASSETS.images.uiEnergy.key, RunScene.FALLBACK_TEXTURES.uiEnergy);
   }
 
@@ -530,7 +477,10 @@ export class RunScene extends Phaser.Scene {
   }
 
   private spawnEnemies(count: number): void {
-    for (let i = 0; i < count; i += 1) {
+    const activeEnemies = this.enemies.countActive(true);
+    const room = Math.max(0, RunScene.MAX_ACTIVE_ENEMIES - activeEnemies);
+    const spawnCount = Math.min(count, room);
+    for (let i = 0; i < spawnCount; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
       const enemy = this.physics.add.sprite(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), this.resolvedTextures.enemy, 0);
       enemy.setDepth(15);
@@ -538,9 +488,23 @@ export class RunScene extends Phaser.Scene {
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      enemy.setData('spawnedAt', this.time.now);
       this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
     }
+  }
+
+  private cleanupEnemies(): void {
+    const ttlCutoff = this.time.now - RunScene.ENEMY_TTL_MS;
+    this.enemies.children.each((child) => {
+      const enemy = child as WorldEntity;
+      const spawnedAt = (enemy.getData('spawnedAt') as number | undefined) ?? this.time.now;
+      const outsideWorldBounds = !this.physics.world.bounds.contains(enemy.x, enemy.y);
+      if (outsideWorldBounds || spawnedAt < ttlCutoff) {
+        enemy.destroy();
+      }
+      return true;
+    });
   }
 
   private spawnJunk(count: number): void {
