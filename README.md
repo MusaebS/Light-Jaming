@@ -136,6 +136,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Updated all `app/page.tsx` bridge event subscriptions (`hud`, `interactPrompt`, `sceneTransition`, `runEnd`, `shellNavigation`, `pauseState`) so each React effect directly returns `bridge.on(...)` unsubscribe callbacks, preventing dangling listeners on unmount.
 - ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
 - ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
 - ✅ Added deterministic RunScene texture fallbacks (player/enemy/tile/scrap + shared props), plus a dev/test in-scene warning banner when fallback visuals are active due to missing assets.
