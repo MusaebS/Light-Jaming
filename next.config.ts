@@ -1,64 +1,32 @@
 import type { NextConfig } from 'next';
 
-type AssetMode = 'inline' | 'file' | 'auto';
+const assetMode = process.env.NEXT_PUBLIC_ASSET_MODE ?? 'auto';
+const nodeEnv = process.env.NODE_ENV ?? 'development';
 
-const normalizeAssetMode = (value: string | undefined): AssetMode => {
-  if (value === 'inline' || value === 'file' || value === 'auto') {
-    return value;
-  }
+const usesInlineAssets =
+  assetMode === 'inline' || (assetMode === 'auto' && nodeEnv !== 'production');
 
-  return 'auto';
-};
+const buildCsp = (): string => {
+  const imgAndMediaSrc = usesInlineAssets
+    ? "'self' data: blob:"
+    : "'self' blob:";
 
-const resolveEffectiveAssetMode = (): AssetMode => {
-  const configuredMode = normalizeAssetMode(process.env.NEXT_PUBLIC_ASSET_MODE);
-
-  if (configuredMode !== 'auto') {
-    return configuredMode;
-  }
-
-  return process.env.NODE_ENV === 'production' ? 'file' : 'inline';
-};
-
-const securityHeaders = () => {
-  const effectiveAssetMode = resolveEffectiveAssetMode();
-  const allowsInlineAssets = effectiveAssetMode === 'inline';
-
-  const cspParts = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    "style-src 'self' 'unsafe-inline'",
-    "font-src 'self' data:",
-    allowsInlineAssets ? "img-src 'self' data: blob:" : "img-src 'self' blob:",
-    allowsInlineAssets ? "media-src 'self' data: blob:" : "media-src 'self' blob:",
-    "connect-src 'self'",
-    "frame-ancestors 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-  ];
+  const connectSrc =
+    nodeEnv === 'development'
+      ? "'self' ws: wss:"
+      : "'self'";
 
   return [
-    {
-      key: 'Content-Security-Policy',
-      value: cspParts.join('; '),
-    },
-    {
-      key: 'Referrer-Policy',
-      value: 'strict-origin-when-cross-origin',
-    },
-    {
-      key: 'X-Content-Type-Options',
-      value: 'nosniff',
-    },
-    {
-      key: 'X-Frame-Options',
-      value: 'DENY',
-    },
-    {
-      key: 'Permissions-Policy',
-      value: 'camera=(), microphone=(), geolocation=()'
-    },
-  ];
+    "default-src 'self'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+    "object-src 'none'",
+    "script-src 'self'",
+    "style-src 'self' 'unsafe-inline'",
+    `connect-src ${connectSrc}`,
+    `img-src ${imgAndMediaSrc}`,
+    `media-src ${imgAndMediaSrc}`,
+  ].join('; ');
 };
 
 const nextConfig: NextConfig = {
@@ -67,7 +35,24 @@ const nextConfig: NextConfig = {
     return [
       {
         source: '/:path*',
-        headers: securityHeaders(),
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: buildCsp(),
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+        ],
       },
     ];
   },
