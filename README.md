@@ -74,6 +74,7 @@ npm run build
 - Output handled by Next.js automatically.
 - No server secrets required for this MVP.
 - Saves are local to each device/browser via `localStorage`.
+- Keep Vercel project-level custom headers in sync with `next.config.ts` (or leave Vercel header overrides empty) so app-level CSP and security headers are not accidentally weakened or duplicated.
 
 ### If Vercel reports Phaser + JSX build errors
 
@@ -103,6 +104,27 @@ If your production CSP blocks `data:` URIs, use either:
 
 - `NEXT_PUBLIC_ASSET_MODE=file`, or
 - `NEXT_PUBLIC_ASSET_MODE=auto` with `NODE_ENV=production` (auto-fallback prefers `fileSource` and falls back to `inlineSource` if needed).
+
+### Runtime security headers (`next.config.ts`)
+
+The app now sends a baseline security header set through `headers()` in `next.config.ts` for all routes:
+
+- `Content-Security-Policy`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+The CSP is aligned with the existing asset loading strategy:
+
+- `NEXT_PUBLIC_ASSET_MODE=inline` → `img-src` and `media-src` allow `data:` and `blob:`.
+- `NEXT_PUBLIC_ASSET_MODE=file` → `img-src` and `media-src` allow `blob:` but not `data:`.
+- `NEXT_PUBLIC_ASSET_MODE=auto`:
+  - `NODE_ENV=development` → behaves like inline mode.
+  - `NODE_ENV=test` → behaves like inline mode.
+  - `NODE_ENV=production` → behaves like file mode.
+
+This keeps local dev/test behavior compatible with inline asset-backed scenes while making production default to file-backed assets and a tighter CSP.
 
 ## Systems explained
 
@@ -136,6 +158,7 @@ If your production CSP blocks `data:` URIs, use either:
 
 ## Progress log
 
+- ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
 - ✅ Resolved render-strategy merge conflicts by tightening auto mode selection checks (A→B→C→D) and keeping Mode D as an explicit guaranteed fallback when primitive rendering is unavailable.
 - ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
 - ✅ Added deterministic RunScene texture fallbacks (player/enemy/tile/scrap + shared props), plus a dev/test in-scene warning banner when fallback visuals are active due to missing assets.
