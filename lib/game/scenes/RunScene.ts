@@ -40,6 +40,7 @@ export class RunScene extends Phaser.Scene {
   private selectedEvent = RUN_EVENTS[0];
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
+  private sessionUpdateUnsubscribe?: () => void;
   private audioUnlocked = false;
   private paused = false;
   private fallbackModeActive = false;
@@ -77,7 +78,7 @@ export class RunScene extends Phaser.Scene {
 
   create(): void {
     fadeInScene(this);
-    const zone = ZONES.find((entry) => entry.id === this.session.zone) ?? ZONES[0];
+    const zone = this.getCurrentZone();
     this.selectedEvent = Phaser.Utils.Array.GetRandom(RUN_EVENTS);
     this.cameras.main.setBackgroundColor(zone.hazardColor);
     this.setupFallbackTextures();
@@ -151,10 +152,15 @@ export class RunScene extends Phaser.Scene {
       if (active && control === 'interact') this.tryInteract();
       if (active && control === 'pause') this.togglePause();
     });
+    this.sessionUpdateUnsubscribe = this.bridge.on('sessionUpdate', (nextSession) => {
+      this.applySessionUpdate(nextSession);
+    });
 
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.controlUnsubscribe?.();
       this.controlUnsubscribe = undefined;
+      this.sessionUpdateUnsubscribe?.();
+      this.sessionUpdateUnsubscribe = undefined;
     });
 
     this.time.addEvent({
@@ -174,7 +180,7 @@ export class RunScene extends Phaser.Scene {
     this.time.addEvent({
       delay: zone.id === 'cathedral-toasters' ? 2200 : 2600,
       loop: true,
-      callback: () => this.applyZoneHazard(zone.id)
+      callback: () => this.applyZoneHazard(this.session.zone)
     });
     this.markHudDirty(`Render mode: ${describeRenderMode(this.renderMode)} · Collect scrap, test action, then decide when to retreat.`);
     this.flushHud();
@@ -564,6 +570,26 @@ export class RunScene extends Phaser.Scene {
     }
   }
 
+  private applySessionUpdate(nextSession: SessionConfig): void {
+    const zoneChanged = this.session.zone !== nextSession.zone;
+    const modulesChanged = this.session.modules !== nextSession.modules;
+    const settingsChanged = this.session.settings !== nextSession.settings;
+    if (!zoneChanged && !modulesChanged && !settingsChanged) return;
+
+    this.session = nextSession;
+
+    if (zoneChanged) {
+      const zone = this.getCurrentZone();
+      this.cameras.main.setBackgroundColor(zone.hazardColor);
+      this.markHudDirty(`Zone updated: ${zone.name}. ${this.hudHint}`);
+    }
+
+    if (modulesChanged || settingsChanged) {
+      this.markHudDirty();
+    }
+    this.flushHud();
+  }
+
   private togglePause(): void {
     this.paused = !this.paused;
     this.physics.world.isPaused = this.paused;
@@ -650,5 +676,9 @@ export class RunScene extends Phaser.Scene {
   private playAnimation(entity: WorldEntity, key: string, ignoreIfPlaying = false): void {
     const animTarget = entity as unknown as { play?: (animKey: string, ignore?: boolean) => void };
     animTarget.play?.(key, ignoreIfPlaying);
+  }
+
+  private getCurrentZone() {
+    return ZONES.find((entry) => entry.id === this.session.zone) ?? ZONES[0];
   }
 }

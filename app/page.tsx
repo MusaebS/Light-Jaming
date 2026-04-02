@@ -38,6 +38,10 @@ export default function HomePage() {
   const [homeView, setHomeView] = useState<HomeView>('home');
 
   const bridge = useMemo(() => new GameBridge(), []);
+  const session = useMemo(
+    () => ({ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }),
+    [zone, save.settings, save.meta.unlockedUpgrades]
+  );
 
   useEffect(() => {
     if (loaded) return;
@@ -257,7 +261,7 @@ export default function HomePage() {
               <p className="muted">{prompt}</p>
             </section>
           )}
-          <GameCanvas bridge={bridge} session={{ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }} />
+          <GameCanvas bridge={bridge} session={session} />
           {activeScene === 'run' && <TouchControls bridge={bridge} />}
         </>
       )}
