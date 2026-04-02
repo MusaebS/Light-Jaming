@@ -23,7 +23,8 @@ export const defaultSave: GameSave = {
   settings: {
     soundOn: true,
     reducedMotion: false,
-    reducedShake: false
+    reducedShake: false,
+    renderMode: 'auto'
   }
 };
 

@@ -35,6 +35,7 @@ export default function HomePage() {
   const [prompt, setPrompt] = useState('');
   const [paused, setPaused] = useState(false);
   const [activeScene, setActiveScene] = useState<SceneKey>('title');
+  const [homeView, setHomeView] = useState<HomeView>('home');
 
   const bridge = useMemo(() => new GameBridge(), []);
 

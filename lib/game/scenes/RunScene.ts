@@ -4,6 +4,8 @@ import { ENEMIES } from '@/lib/game/data/enemies';
 import { RUN_EVENTS } from '@/lib/game/data/events';
 import { ZONES } from '@/lib/game/data/zones';
 import { buildPlayerTuning } from '@/lib/game/entities/playerLogic';
+import { drawArena, createEnemy, createFacingMarker, createJunk, createPlayer, createScrap, ensureGeneratedTextures, WorldEntity } from '@/lib/game/scenes/utils/renderFactory';
+import { describeRenderMode, pickRenderMode, RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
 import { fadeInScene, startSceneWithFade } from '@/lib/game/scenes/utils/sceneTransition';
 import { GameBridge, SessionConfig } from '@/lib/game/systems/gameBridge';
 import { LootType, ZoneId } from '@/lib/game/types/gameTypes';
@@ -15,15 +17,15 @@ interface RunSceneData {
 
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
-const SHOW_DEV_DEBUG = process.env.NODE_ENV !== 'production' && false;
 
 export class RunScene extends Phaser.Scene {
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
-  private player!: Phaser.Physics.Arcade.Sprite;
-  private playerFacing!: Phaser.GameObjects.Image;
+  private player!: WorldEntity;
+  private playerFacing!: WorldEntity;
+  private renderMode: RenderMode = 'mode-c';
   private enemies!: Phaser.Physics.Arcade.Group;
   private scrapGroup!: Phaser.Physics.Arcade.Group;
   private junkGroup!: Phaser.Physics.Arcade.StaticGroup;
@@ -60,21 +62,27 @@ export class RunScene extends Phaser.Scene {
     this.selectedEvent = Phaser.Utils.Array.GetRandom(RUN_EVENTS);
     this.cameras.main.setBackgroundColor(zone.hazardColor);
 
+    this.renderMode = pickRenderMode(this, this.session.settings.renderMode);
+    if (this.renderMode === 'mode-b') {
+      ensureGeneratedTextures(this);
+    }
+
     const worldRect = new Phaser.Geom.Rectangle(40, 40, 920, 620);
-    this.drawArena(worldRect, zone.name);
+    drawArena(this, this.renderMode, worldRect, zone.name, this.selectedEvent.name);
     this.createAnimations();
 
-    this.player = this.physics.add.sprite(140, 120, ASSETS.spritesheets.player.key, 0);
-    this.player.setDepth(20);
-    this.player.play(ASSETS.anims.playerIdle);
+    this.player = createPlayer(this, this.renderMode, 140, 120);
+    this.setDepth(this.player, 20);
+    this.playAnimation(this.player, ASSETS.anims.playerIdle);
 
-    this.playerFacing = this.add.image(140, 120, ASSETS.images.uiEnergy.key).setScale(0.9).setAlpha(0.8).setDepth(21);
+    this.playerFacing = createFacingMarker(this, this.renderMode, 140, 120);
+    this.setDepth(this.playerFacing, 21);
 
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setCollideWorldBounds(true);
-    body.setBoundsRectangle(worldRect);
-    body.setSize(18, 22);
-    body.setOffset(7, 6);
+    const playerBody = this.getBody(this.player);
+    playerBody.setCollideWorldBounds(true);
+    playerBody.setBoundsRectangle(worldRect);
+    playerBody.setSize(18, 22);
+    playerBody.setOffset(7, 6);
 
     this.enemies = this.physics.add.group();
     this.scrapGroup = this.physics.add.group();
@@ -102,7 +110,7 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.physics.add.overlap(this.player, this.junkGroup, (_, junkNode) => {
-      const node = junkNode as Phaser.Physics.Arcade.Sprite;
+      const node = junkNode as Phaser.GameObjects.GameObject;
       this.bridge.emit('interactPrompt', { text: `Break junk mound (${node.getData('hp')} durability) for salvage.` });
     });
 
@@ -148,14 +156,13 @@ export class RunScene extends Phaser.Scene {
       loop: true,
       callback: () => this.applyZoneHazard(zone.id)
     });
-    this.markHudDirty('Collect scrap, test action, then decide when to retreat.');
+    this.markHudDirty(`Render mode: ${describeRenderMode(this.renderMode)} · Collect scrap, test action, then decide when to retreat.`);
     this.flushHud();
   }
 
   update(time: number, delta: number): void {
     if (this.paused) {
-      const body = this.player.body as Phaser.Physics.Arcade.Body;
-      body.setVelocity(0, 0);
+      this.getBody(this.player).setVelocity(0, 0);
       this.flushHud();
       return;
     }
@@ -170,9 +177,9 @@ export class RunScene extends Phaser.Scene {
     velocity.normalize().scale(tuning.moveSpeed);
     if (velocity.lengthSq() > 0) this.lastMoveDirection.copy(velocity).normalize();
 
-    (this.player.body as Phaser.Physics.Arcade.Body).setVelocity(velocity.x, velocity.y);
-    this.playerFacing.setPosition(this.player.x, this.player.y);
-    this.playerFacing.setRotation(this.lastMoveDirection.angle() + Math.PI / 2);
+    this.getBody(this.player).setVelocity(velocity.x, velocity.y);
+    this.setPosition(this.playerFacing, this.player.x, this.player.y);
+    this.setRotation(this.playerFacing, this.lastMoveDirection.angle() + Math.PI / 2);
 
     const nextEnergy = Math.min(100, this.energy + delta * 0.005);
     if (nextEnergy !== this.energy) {
@@ -182,25 +189,25 @@ export class RunScene extends Phaser.Scene {
     this.actionCooldown = Math.max(0, this.actionCooldown - delta);
 
     this.enemies.children.each((child) => {
-      const enemy = child as Phaser.Physics.Arcade.Sprite;
-      const enemyBody = enemy.body as Phaser.Physics.Arcade.Body;
+      const enemy = child as WorldEntity;
+      const enemyBody = this.getBody(enemy);
       const enemyId = enemy.getData('id') as string;
       if (enemyId === 'jealous-cart' && this.scrap > 12) {
-        this.physics.moveTo(enemy, 920, 620, enemy.getData('speed'));
+        this.physics.moveTo(enemy as Phaser.Types.Physics.Arcade.GameObjectWithBody, 920, 620, enemy.getData('speed'));
       } else if (enemyId === 'fridge-mimic') {
         const nearPlayer = Phaser.Math.Distance.BetweenPoints(enemy, this.player) < 140;
-        enemy.setTint(nearPlayer ? 0xff9c9c : 0x9eb0bc);
+        this.setTint(enemy, nearPlayer ? 0xff9c9c : 0x9eb0bc);
         if (nearPlayer) {
-          this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
+          this.physics.moveToObject(enemy as Phaser.Types.Physics.Arcade.GameObjectWithBody, this.player as Phaser.Types.Physics.Arcade.GameObjectWithBody, enemy.getData('speed'));
         } else {
           enemyBody.setVelocity(0, 0);
         }
       } else {
-        this.physics.moveToObject(enemy, this.player, enemy.getData('speed'));
+        this.physics.moveToObject(enemy as Phaser.Types.Physics.Arcade.GameObjectWithBody, this.player as Phaser.Types.Physics.Arcade.GameObjectWithBody, enemy.getData('speed'));
       }
 
       if (enemyId === 'jealous-cart' || enemyId === 'vacuum-wolf') {
-        enemy.play(ASSETS.anims.enemyWalk, true);
+        this.playAnimation(enemy, ASSETS.anims.enemyWalk, true);
       }
 
       if (enemyId === 'repair-saint' && Math.random() < 0.004) {
@@ -220,43 +227,8 @@ export class RunScene extends Phaser.Scene {
     this.flushHud();
   }
 
-  private drawArena(worldRect: Phaser.Geom.Rectangle, zoneName: string): void {
-    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, ASSETS.images.arenaBackground.key).setAlpha(0.96).setDepth(0);
-    this.add.tileSprite(500, 350, worldRect.width, worldRect.height, ASSETS.images.arenaTile.key).setAlpha(0.3).setDepth(1);
-
-    for (let i = 0; i < 12; i += 1) {
-      this.add
-        .image(Phaser.Math.Between(100, 890), Phaser.Math.Between(120, 590), ASSETS.images.junk.key)
-        .setScale(Phaser.Math.FloatBetween(0.85, 1.25))
-        .setRotation(Phaser.Math.FloatBetween(-0.25, 0.25))
-        .setAlpha(0.3)
-        .setDepth(2);
-    }
-
-    for (let i = 0; i < 15; i += 1) {
-      const beacon = this.add
-        .image(Phaser.Math.Between(80, 920), Phaser.Math.Between(90, 640), ASSETS.images.beacon.key)
-        .setScale(Phaser.Math.FloatBetween(0.7, 1.2))
-        .setAlpha(0.35)
-        .setDepth(3);
-
-      if (!this.session.settings.reducedMotion) {
-        this.tweens.add({
-          targets: beacon,
-          alpha: { from: 0.2, to: 0.65 },
-          yoyo: true,
-          repeat: -1,
-          duration: Phaser.Math.Between(900, 1800),
-          delay: Phaser.Math.Between(0, 700)
-        });
-      }
-    }
-
-    this.add.text(56, 50, `${zoneName} · ${this.selectedEvent.name}`, { color: '#d9f9ff', fontSize: '16px' }).setDepth(5);
-    this.add.text(838, 612, 'EXTRACT', { color: '#ffd166', fontSize: '14px' }).setDepth(5);
-  }
-
   private createAnimations(): void {
+    if (this.renderMode !== 'mode-a') return;
     if (!this.anims.exists(ASSETS.anims.playerIdle)) {
       this.anims.create({ key: ASSETS.anims.playerIdle, frames: [{ key: ASSETS.spritesheets.player.key, frame: 0 }], frameRate: 3, repeat: -1 });
     }
@@ -290,24 +262,19 @@ export class RunScene extends Phaser.Scene {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
     this.actionCooldown = this.session.modules.includes('arc-welder') ? 520 : 300;
-    this.player.play(ASSETS.anims.playerAction, true);
+    this.playAnimation(this.player, ASSETS.anims.playerAction);
 
-    const strikeFx = this.add
-      .image(this.player.x, this.player.y, ASSETS.images.beacon.key)
-      .setScale(2.5)
-      .setTint(0xf9da74)
-      .setAlpha(0.25)
-      .setDepth(19);
+    const strikeFx = this.add.circle(this.player.x, this.player.y, 22, 0xf9da74, 0.25).setDepth(19);
     this.time.delayedCall(120, () => strikeFx.destroy());
     this.playSfx('action');
 
     this.enemies.children.each((child) => {
-      const enemy = child as Phaser.Physics.Arcade.Sprite;
+      const enemy = child as WorldEntity;
       if (Phaser.Math.Distance.BetweenPoints(this.player, enemy) < 52) {
         const hp = (enemy.getData('hp') as number) - tuning.actionDamage;
         enemy.setData('hp', hp);
-        enemy.setTint(0xffa3a3);
-        this.time.delayedCall(90, () => enemy.setTint(0xff7373));
+        this.setTint(enemy, 0xffa3a3);
+        this.time.delayedCall(90, () => this.setTint(enemy, 0xff7373));
         if (hp <= 0) {
           enemy.destroy();
           this.collectScrap('enemy_salvage', 2);
@@ -318,12 +285,12 @@ export class RunScene extends Phaser.Scene {
     });
 
     this.junkGroup.children.each((child) => {
-      const junk = child as Phaser.Physics.Arcade.Sprite;
+      const junk = child as WorldEntity;
       if (Phaser.Math.Distance.BetweenPoints(this.player, junk) >= 56) return true;
       const hp = (junk.getData('hp') as number) - 1;
       junk.setData('hp', hp);
-      junk.setTint(0xc9d4dd);
-      this.time.delayedCall(90, () => junk.setTint(0xffffff));
+      this.setTint(junk, 0xc9d4dd);
+      this.time.delayedCall(90, () => this.clearTint(junk));
       if (hp <= 0) {
         junk.destroy();
         this.collectScrap('uncommon_component', 3);
@@ -340,7 +307,7 @@ export class RunScene extends Phaser.Scene {
 
     this.energy -= tuning.dashCost;
     this.markHudDirty();
-    const body = this.player.body as Phaser.Physics.Arcade.Body;
+    const body = this.getBody(this.player);
     body.velocity.scale(1.7);
     if (body.velocity.lengthSq() < 1) body.setVelocity(tuning.dashImpulse, 0);
     this.playSfx('dodge');
@@ -418,7 +385,7 @@ export class RunScene extends Phaser.Scene {
 
   private pullPickups(radius: number): void {
     this.scrapGroup.children.each((child) => {
-      const pickup = child as Phaser.Physics.Arcade.Sprite;
+      const pickup = child as WorldEntity;
       const distance = Phaser.Math.Distance.BetweenPoints(this.player, pickup);
       if (distance <= radius) {
         const vec = new Phaser.Math.Vector2(this.player.x - pickup.x, this.player.y - pickup.y).normalize();
@@ -431,10 +398,9 @@ export class RunScene extends Phaser.Scene {
 
   private spawnScrap(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const scrap = this.physics.add.sprite(Phaser.Math.Between(70, 930), Phaser.Math.Between(90, 640), ASSETS.images.scrap.key);
-      scrap.setScale(Phaser.Math.FloatBetween(0.8, 1.05));
-      scrap.setDepth(14);
-      (scrap.body as Phaser.Physics.Arcade.Body).setSize(10, 10).setOffset(3, 3);
+      const scrap = createScrap(this, this.renderMode, Phaser.Math.Between(70, 930), Phaser.Math.Between(90, 640));
+      this.setDepth(scrap, 14);
+      this.getBody(scrap).setSize(10, 10).setOffset(3, 3);
       this.scrapGroup.add(scrap);
     }
   }
@@ -442,35 +408,37 @@ export class RunScene extends Phaser.Scene {
   private spawnEnemies(count: number): void {
     for (let i = 0; i < count; i += 1) {
       const def = Phaser.Utils.Array.GetRandom(ENEMIES);
-      const enemy = this.physics.add.sprite(Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620), ASSETS.spritesheets.enemyCart.key, 0);
-      enemy.setDepth(15);
-      enemy.setTint(def.id === 'repair-saint' ? 0x89ffab : 0xff7373);
+      const enemy = createEnemy(this, this.renderMode, Phaser.Math.Between(120, 900), Phaser.Math.Between(140, 620));
+      this.setDepth(enemy, 15);
+      this.setTint(enemy, def.id === 'repair-saint' ? 0x89ffab : 0xff7373);
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
-      (enemy.body as Phaser.Physics.Arcade.Body).setSize(18, 16).setOffset(7, 8);
+      this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
     }
   }
 
   private spawnJunk(count: number): void {
     for (let i = 0; i < count; i += 1) {
-      const junk = this.physics.add.staticSprite(Phaser.Math.Between(110, 900), Phaser.Math.Between(110, 620), ASSETS.images.junk.key);
-      junk.setScale(Phaser.Math.FloatBetween(0.85, 1.2));
-      junk.setDepth(11);
+      const junk = createJunk(this, this.renderMode, Phaser.Math.Between(110, 900), Phaser.Math.Between(110, 620));
+      this.setDepth(junk, 11);
       junk.setData('hp', Phaser.Math.Between(2, 4));
-      const body = junk.body as Phaser.Physics.Arcade.StaticBody;
+      const body = this.getBody(junk);
       body.setSize(24, 18).setOffset(8, 10);
+      if ('refreshBody' in junk) {
+        (junk as Phaser.Physics.Arcade.Sprite).refreshBody();
+      }
       this.junkGroup.add(junk);
     }
   }
 
-  private healNearestEnemy(source: Phaser.Physics.Arcade.Sprite, amount: number): void {
-    let nearest: Phaser.Physics.Arcade.Sprite | undefined;
+  private healNearestEnemy(source: WorldEntity, amount: number): void {
+    let nearest: WorldEntity | undefined;
     let shortest = Number.POSITIVE_INFINITY;
 
     this.enemies.children.each((child) => {
-      const candidate = child as Phaser.Physics.Arcade.Sprite;
+      const candidate = child as WorldEntity;
       if (candidate === source) return true;
       const distance = Phaser.Math.Distance.BetweenPoints(source, candidate);
       if (distance < shortest) {
@@ -483,12 +451,15 @@ export class RunScene extends Phaser.Scene {
     if (!nearest || shortest > 180) return;
     const maxHp = ENEMIES.find((enemy) => enemy.id === nearest?.getData('id'))?.health ?? 20;
     nearest.setData('hp', Math.min(maxHp, (nearest.getData('hp') as number) + amount));
-    nearest.setTint(0x9dffb8);
-    this.time.delayedCall(100, () => nearest?.setTint(0xff7373));
+    this.setTint(nearest, 0x9dffb8);
+    this.time.delayedCall(100, () => nearest && this.setTint(nearest, 0xff7373));
   }
 
   private applyZoneHazard(zoneId: ZoneId): void {
     if (this.paused) return;
+    if (this.renderMode === 'mode-d') {
+      this.cameras.main.setBackgroundColor(zoneId === 'chrome-marsh' ? '#102a35' : '#3d1e1e');
+    }
     const inHotspot = this.player.x > 300 && this.player.x < 690 && this.player.y > 220 && this.player.y < 500;
     if (!inHotspot) return;
 
@@ -553,5 +524,42 @@ export class RunScene extends Phaser.Scene {
     };
     this.bridge.emit('sceneTransition', { from: 'run', to: 'results', reason: 'run-complete' });
     startSceneWithFade(this, 'results', { bridge: this.bridge, session: this.session, result });
+  }
+
+  private getBody(entity: WorldEntity): Phaser.Physics.Arcade.Body {
+    return entity.body as Phaser.Physics.Arcade.Body;
+  }
+
+  private setTint(entity: WorldEntity, color: number): void {
+    const tintTarget = entity as unknown as { setTint?: (value: number) => void; setFillStyle?: (value: number, alpha?: number) => void };
+    if (tintTarget.setTint) tintTarget.setTint(color);
+    else tintTarget.setFillStyle?.(color, 1);
+  }
+
+  private clearTint(entity: WorldEntity): void {
+    const tintTarget = entity as unknown as { clearTint?: () => void };
+    tintTarget.clearTint?.();
+  }
+
+
+
+  private setRotation(entity: WorldEntity, angle: number): void {
+    const transformTarget = entity as unknown as { setRotation?: (rotation: number) => void };
+    transformTarget.setRotation?.(angle);
+  }
+
+  private setPosition(entity: WorldEntity, x: number, y: number): void {
+    const transformTarget = entity as unknown as { setPosition?: (nextX: number, nextY: number) => void };
+    transformTarget.setPosition?.(x, y);
+  }
+
+  private setDepth(entity: WorldEntity, depth: number): void {
+    const depthTarget = entity as unknown as { setDepth?: (value: number) => void };
+    depthTarget.setDepth?.(depth);
+  }
+
+  private playAnimation(entity: WorldEntity, key: string, ignoreIfPlaying = false): void {
+    const animTarget = entity as unknown as { play?: (animKey: string, ignore?: boolean) => void };
+    animTarget.play?.(key, ignoreIfPlaying);
   }
 }

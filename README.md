@@ -114,6 +114,7 @@ npm run build
 
 ## Progress log
 
+- ✅ Added a four-tier run-scene render strategy (asset textures, generated textures, primitive-only, and high-contrast fallback), plus a dev-only settings override and shared entity factory helpers to keep gameplay readable when textures are unavailable.
 - ✅ Added asset manifest compatibility fields/helpers (`source` + legacy `path`) to reduce merge conflicts with scene code during ongoing asset-loader updates across branches.
 - ✅ Swapped committed binary image assets for manifest-managed inline SVG data URIs so diffs stay text-only and reviewable in environments that do not support binary patches.
 - ✅ Replaced primitive run-scene placeholders with manifest-driven preloaded sprites, background tiles, and basic player/enemy animations (with body size/offset tuning and dev-only debug placeholder guard).

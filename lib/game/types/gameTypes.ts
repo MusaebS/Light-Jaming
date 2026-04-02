@@ -66,10 +66,13 @@ export interface GameSave {
   settings: GameSettings;
 }
 
+export type RenderModeSetting = 'auto' | 'mode-a' | 'mode-b' | 'mode-c' | 'mode-d';
+
 export interface GameSettings {
   soundOn: boolean;
   reducedMotion: boolean;
   reducedShake: boolean;
+  renderMode: RenderModeSetting;
 }
 
 export type RunOutcome = 'retreat' | 'shutdown';
