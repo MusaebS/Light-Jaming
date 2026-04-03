@@ -116,6 +116,7 @@ Additional note: development also allows `ws:`/`wss:` in `connect-src` so Next.j
 The app now sends a baseline security header set through `headers()` in `next.config.ts` for all routes:
 
 - `Content-Security-Policy`
+- `script-src` allows `'unsafe-inline'` for Next.js bootstrap runtime compatibility
 - `Referrer-Policy: strict-origin-when-cross-origin`
 - `X-Content-Type-Options: nosniff`
 - `X-Frame-Options: DENY`
@@ -164,6 +165,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Fixed Vercel blank-page startup by allowing Next.js inline bootstrap/runtime script execution in CSP (`script-src 'self' 'unsafe-inline'`), while keeping the rest of the existing security-header policy intact across environments.
 - ✅ Fixed a production-blocking Phaser spritesheet preload issue by restoring explicit `frameConfig` values in the asset manifest and adding a BootScene diagnostic fallback/log path when spritesheet metadata is missing, so Vercel deployments fail visibly instead of rendering a blank game canvas.
 - ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
 - ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
