@@ -333,29 +333,34 @@ export class RunScene extends Phaser.Scene {
   }
 
   private setupFallbackTextures(): void {
-    const graphics = this.add.graphics();
-    const ensureRectTexture = (key: string, width: number, height: number, color: number, alpha = 1): void => {
-      if (this.textures.exists(key)) return;
-      graphics.clear();
-      graphics.fillStyle(color, alpha);
-      graphics.fillRect(0, 0, width, height);
-      graphics.generateTexture(key, width, height);
-    };
-    const ensureCircleTexture = (key: string, diameter: number, color: number, alpha = 1): void => {
-      if (this.textures.exists(key)) return;
-      graphics.clear();
-      graphics.fillStyle(color, alpha);
-      graphics.fillCircle(diameter / 2, diameter / 2, diameter / 2);
-      graphics.generateTexture(key, diameter, diameter);
-    };
+    try {
+      const graphics = this.add.graphics();
+      const ensureRectTexture = (key: string, width: number, height: number, color: number, alpha = 1): void => {
+        if (this.textures.exists(key)) return;
+        graphics.clear();
+        graphics.fillStyle(color, alpha);
+        graphics.fillRect(0, 0, width, height);
+        graphics.generateTexture(key, width, height);
+      };
+      const ensureCircleTexture = (key: string, diameter: number, color: number, alpha = 1): void => {
+        if (this.textures.exists(key)) return;
+        graphics.clear();
+        graphics.fillStyle(color, alpha);
+        graphics.fillCircle(diameter / 2, diameter / 2, diameter / 2);
+        graphics.generateTexture(key, diameter, diameter);
+      };
 
-    ensureRectTexture(RunScene.FALLBACK_TEXTURES.player, 32, 32, 0x7ce6ff);
-    ensureRectTexture(RunScene.FALLBACK_TEXTURES.enemy, 28, 24, 0xff8787);
-    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.scrap, 14, 0xffd980);
-    ensureRectTexture(RunScene.FALLBACK_TEXTURES.junk, 30, 24, 0x7c8f9f, 0.95);
-    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.beacon, 20, 0x7ae8ff, 0.9);
-    ensureCircleTexture(RunScene.FALLBACK_TEXTURES.uiEnergy, 14, 0xc0f3ff);
-    graphics.destroy();
+      ensureRectTexture(RunScene.FALLBACK_TEXTURES.player, 32, 32, 0x7ce6ff);
+      ensureRectTexture(RunScene.FALLBACK_TEXTURES.enemy, 28, 24, 0xff8787);
+      ensureCircleTexture(RunScene.FALLBACK_TEXTURES.scrap, 14, 0xffd980);
+      ensureRectTexture(RunScene.FALLBACK_TEXTURES.junk, 30, 24, 0x7c8f9f, 0.95);
+      ensureCircleTexture(RunScene.FALLBACK_TEXTURES.beacon, 20, 0x7ae8ff, 0.9);
+      ensureCircleTexture(RunScene.FALLBACK_TEXTURES.uiEnergy, 14, 0xc0f3ff);
+      graphics.destroy();
+    } catch (error) {
+      this.fallbackModeActive = true;
+      console.warn('[RunScene] Failed to generate fallback textures, using built-in texture fallback.', error);
+    }
 
     this.resolvedTextures.player = this.resolveTextureOrFallback(ASSETS.spritesheets.player.key, RunScene.FALLBACK_TEXTURES.player);
     this.resolvedTextures.enemy = this.resolveTextureOrFallback(ASSETS.spritesheets.enemyCart.key, RunScene.FALLBACK_TEXTURES.enemy);
@@ -368,7 +373,9 @@ export class RunScene extends Phaser.Scene {
   private resolveTextureOrFallback(key: string, fallbackKey: string): string {
     if (this.textures.exists(key)) return key;
     this.fallbackModeActive = true;
-    return fallbackKey;
+    if (this.textures.exists(fallbackKey)) return fallbackKey;
+    if (this.textures.exists('__WHITE')) return '__WHITE';
+    return key;
   }
 
   private actionBurst(): void {
