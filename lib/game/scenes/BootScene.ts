@@ -32,6 +32,12 @@ export class BootScene extends Phaser.Scene {
 
   private preloadSpritesheets(): void {
     Object.values(ASSETS.spritesheets).forEach((asset) => {
+      if (!asset.frameConfig) {
+        console.error(`[BootScene] Missing frameConfig for spritesheet key="${asset.key}"`);
+        this.load.image(asset.key, getAssetSource(asset));
+        return;
+      }
+
       this.load.spritesheet(asset.key, getAssetSource(asset), asset.frameConfig);
     });
   }

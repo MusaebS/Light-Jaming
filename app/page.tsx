@@ -44,6 +44,15 @@ export default function HomePage() {
     [zone, save.settings, save.meta.unlockedUpgrades]
   );
 
+  const persistSave = (nextSave: GameSave): void => {
+    const didPersist = writeSave(nextSave);
+    setSaveHint(
+      didPersist
+        ? ''
+        : 'Save failed in this browser session. Progress will continue for now but may not be restored after refresh.'
+    );
+  };
+
   useEffect(() => {
     if (loaded) return;
     const restored = loadSave();
