@@ -18,17 +18,21 @@ const MODE_A_REQUIRED_TEXTURES = [
 ];
 
 const isGraphicsTextureAvailable = (scene: Phaser.Scene): boolean => {
-  if (!scene.textures.exists('__WHITE')) {
+  try {
+    if (!scene.textures.exists('__WHITE')) {
+      return false;
+    }
+    const graphics = scene.make.graphics({ x: 0, y: 0 });
+    graphics.fillStyle(0xffffff, 1);
+    graphics.fillRect(0, 0, 8, 8);
+    graphics.generateTexture('__render-mode-probe', 8, 8);
+    graphics.destroy();
+    const available = scene.textures.exists('__render-mode-probe');
+    if (available) scene.textures.remove('__render-mode-probe');
+    return available;
+  } catch {
     return false;
   }
-  const graphics = scene.make.graphics({ x: 0, y: 0 });
-  graphics.fillStyle(0xffffff, 1);
-  graphics.fillRect(0, 0, 8, 8);
-  graphics.generateTexture('__render-mode-probe', 8, 8);
-  graphics.destroy();
-  const available = scene.textures.exists('__render-mode-probe');
-  if (available) scene.textures.remove('__render-mode-probe');
-  return available;
 };
 
 const canUseModeA = (scene: Phaser.Scene): boolean => MODE_A_REQUIRED_TEXTURES.every((key) => scene.textures.exists(key));
