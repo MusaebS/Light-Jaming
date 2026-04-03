@@ -10,8 +10,8 @@ export function createPhaserGame(
   bridge: GameBridge,
   session: SessionConfig
 ): Phaser.Game {
-  return new Phaser.Game({
-    type: Phaser.AUTO,
+  const buildConfig = (rendererType: number): Phaser.Types.Core.GameConfig => ({
+    type: rendererType,
     width: 1000,
     height: 700,
     parent: container,
@@ -28,4 +28,11 @@ export function createPhaserGame(
       }
     }
   });
+
+  try {
+    return new Phaser.Game(buildConfig(Phaser.AUTO));
+  } catch (error) {
+    console.error('[PhaserConfig] AUTO renderer failed; retrying with CANVAS renderer.', error);
+    return new Phaser.Game(buildConfig(Phaser.CANVAS));
+  }
 }

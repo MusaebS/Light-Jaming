@@ -164,6 +164,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Added renderer boot resilience for production/Vercel by retrying Phaser startup with CANVAS when AUTO renderer init fails, plus a non-crashing in-UI `GameCanvas` fallback message and safer render-mode probing to prevent full-page blackout on unsupported GPUs/browser contexts.
 - ✅ Fixed a Vercel/runtime stability regression by restoring missing `RunScene` guards/helpers (`emitInteractPromptWithCooldown`, keyboard-safe input checks, and default enemy contact damage), and by restoring `persistSave(...)` in `app/page.tsx` so save writes no longer throw during gameplay/settings updates.
 - ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
 - ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
