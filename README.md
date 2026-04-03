@@ -164,6 +164,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Fixed browser-side blank-page startup on Vercel by loosening CSP `script-src` for Next.js runtime bootstrapping (`'unsafe-inline'` in production, plus `'unsafe-eval'` in development), while keeping other CSP directives intact.
 - ✅ Hardened `RunScene` texture fallback to survive graphics texture-generation failures by downgrading to Phaser’s built-in `__WHITE` texture, preventing post-title black-screen sessions in constrained render environments.
 - ✅ Added renderer boot resilience for production/Vercel by retrying Phaser startup with CANVAS when AUTO renderer init fails, plus a non-crashing in-UI `GameCanvas` fallback message and safer render-mode probing to prevent full-page blackout on unsupported GPUs/browser contexts.
 - ✅ Fixed a Vercel/runtime stability regression by restoring missing `RunScene` guards/helpers (`emitInteractPromptWithCooldown`, keyboard-safe input checks, and default enemy contact damage), and by restoring `persistSave(...)` in `app/page.tsx` so save writes no longer throw during gameplay/settings updates.

@@ -16,12 +16,17 @@ const buildCsp = (): string => {
       ? "'self' ws: wss:"
       : "'self'";
 
+  const scriptSrc =
+    nodeEnv === 'development'
+      ? "'self' 'unsafe-inline' 'unsafe-eval'"
+      : "'self' 'unsafe-inline'";
+
   return [
     "default-src 'self'",
     "base-uri 'self'",
     "frame-ancestors 'none'",
     "object-src 'none'",
-    "script-src 'self'",
+    `script-src ${scriptSrc}`,
     "style-src 'self' 'unsafe-inline'",
     `connect-src ${connectSrc}`,
     `img-src ${imgAndMediaSrc}`,
