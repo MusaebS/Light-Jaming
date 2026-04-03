@@ -127,6 +127,11 @@ export default function HomePage() {
     });
   }, [bridge]);
 
+  const persistSave = (next: GameSave): void => {
+    const didWrite = writeSave(next);
+    setSaveHint(didWrite ? '' : 'Could not save progress in this browser session.');
+  };
+
   const buyUpgrade = (id: string): void => {
     const target = UPGRADE_DEFS.find((u) => u.id === id);
     if (!target || target.cost <= 0) return;

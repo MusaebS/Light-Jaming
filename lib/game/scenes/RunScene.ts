@@ -18,13 +18,14 @@ interface RunSceneData {
 type TouchControl = 'up' | 'down' | 'left' | 'right' | 'action' | 'dodge' | 'interact' | 'pause';
 
 export class RunScene extends Phaser.Scene {
+  private static readonly DEFAULT_CONTACT_DAMAGE = 7;
   private static readonly MAX_ACTIVE_ENEMIES = 24;
   private static readonly ENEMY_TTL_MS = 90000;
   private static readonly ENEMY_CLEANUP_INTERVAL_MS = 8000;
   private bridge!: GameBridge;
   private session!: SessionConfig;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private wasd!: Record<string, Phaser.Input.Keyboard.Key>;
+  private cursors: Partial<Record<'up' | 'down' | 'left' | 'right', Phaser.Input.Keyboard.Key>> = {};
+  private wasd: Partial<Record<'W' | 'A' | 'S' | 'D' | 'E' | 'SPACE' | 'SHIFT' | 'ESC', Phaser.Input.Keyboard.Key>> = {};
   private player!: WorldEntity;
   private playerFacing!: WorldEntity;
   private renderMode: RenderMode = 'mode-c';
@@ -42,6 +43,12 @@ export class RunScene extends Phaser.Scene {
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
   private sessionUpdateUnsubscribe?: () => void;
+  private onKeydownE?: () => void;
+  private onKeydownSpace?: () => void;
+  private onKeydownShift?: () => void;
+  private onKeydownEsc?: () => void;
+  private onAnyKeydown?: () => void;
+  private onPointerDown?: () => void;
   private audioUnlocked = false;
   private paused = false;
   private fallbackModeActive = false;
@@ -94,8 +101,8 @@ export class RunScene extends Phaser.Scene {
     this.createAnimations();
 
     this.player = this.physics.add.sprite(140, 120, this.resolvedTextures.player, 0);
-    this.player.setDepth(20);
-    this.player.play(ASSETS.anims.playerIdle);
+    this.setDepth(this.player, 20);
+    this.playAnimation(this.player, ASSETS.anims.playerIdle);
 
     this.playerFacing = this.add.image(140, 120, this.resolvedTextures.uiEnergy).setScale(0.9).setAlpha(0.8).setDepth(21);
 
@@ -145,8 +152,8 @@ export class RunScene extends Phaser.Scene {
     });
 
     const keyboard = this.input.keyboard;
-    this.cursors = keyboard!.createCursorKeys();
-    this.wasd = keyboard!.addKeys('W,S,A,D,E,SPACE,SHIFT,ESC') as Record<string, Phaser.Input.Keyboard.Key>;
+    this.cursors = keyboard?.createCursorKeys() ?? {};
+    this.wasd = (keyboard?.addKeys('W,S,A,D,E,SPACE,SHIFT,ESC') ?? {}) as typeof this.wasd;
 
     this.onKeydownE = () => this.tryInteract();
     this.onKeydownSpace = () => this.actionBurst();
@@ -234,10 +241,10 @@ export class RunScene extends Phaser.Scene {
 
     const tuning = buildPlayerTuning(this.session.modules);
     const velocity = new Phaser.Math.Vector2(0, 0);
-    if (this.cursors.left.isDown || this.wasd.A.isDown || this.touchState.left) velocity.x = -1;
-    if (this.cursors.right.isDown || this.wasd.D.isDown || this.touchState.right) velocity.x = 1;
-    if (this.cursors.up.isDown || this.wasd.W.isDown || this.touchState.up) velocity.y = -1;
-    if (this.cursors.down.isDown || this.wasd.S.isDown || this.touchState.down) velocity.y = 1;
+    if (this.isKeyDown(this.cursors.left) || this.isKeyDown(this.wasd.A) || this.touchState.left) velocity.x = -1;
+    if (this.isKeyDown(this.cursors.right) || this.isKeyDown(this.wasd.D) || this.touchState.right) velocity.x = 1;
+    if (this.isKeyDown(this.cursors.up) || this.isKeyDown(this.wasd.W) || this.touchState.up) velocity.y = -1;
+    if (this.isKeyDown(this.cursors.down) || this.isKeyDown(this.wasd.S) || this.touchState.down) velocity.y = 1;
 
     velocity.normalize().scale(tuning.moveSpeed);
     if (velocity.lengthSq() > 0) this.lastMoveDirection.copy(velocity).normalize();
@@ -368,7 +375,7 @@ export class RunScene extends Phaser.Scene {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
     this.actionCooldown = this.session.modules.includes('arc-welder') ? 520 : 300;
-    this.player.play(ASSETS.anims.playerAction, true);
+    this.playAnimation(this.player, ASSETS.anims.playerAction, true);
 
     const strikeFx = this.add
       .image(this.player.x, this.player.y, this.resolvedTextures.beacon)
@@ -529,6 +536,7 @@ export class RunScene extends Phaser.Scene {
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      enemy.setData('contactDamage', RunScene.DEFAULT_CONTACT_DAMAGE);
       enemy.setData('spawnedAt', this.time.now);
       this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
@@ -689,6 +697,17 @@ export class RunScene extends Phaser.Scene {
   private clearTint(entity: WorldEntity): void {
     const tintTarget = entity as unknown as { clearTint?: () => void };
     tintTarget.clearTint?.();
+  }
+
+  private isKeyDown(key: Phaser.Input.Keyboard.Key | null | undefined): boolean {
+    return Boolean(key?.isDown);
+  }
+
+  private emitInteractPromptWithCooldown(key: string, text: string, cooldownMs: number): void {
+    const nextAllowedAt = this.interactPromptCooldowns[key] ?? 0;
+    if (this.time.now < nextAllowedAt) return;
+    this.interactPromptCooldowns[key] = this.time.now + cooldownMs;
+    this.bridge.emit('interactPrompt', { text });
   }
 
 

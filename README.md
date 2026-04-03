@@ -164,6 +164,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Fixed a Vercel/runtime stability regression by restoring missing `RunScene` guards/helpers (`emitInteractPromptWithCooldown`, keyboard-safe input checks, and default enemy contact damage), and by restoring `persistSave(...)` in `app/page.tsx` so save writes no longer throw during gameplay/settings updates.
 - ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
 - ✅ Added Next.js `headers()` baseline security headers with CSP rules that follow `NEXT_PUBLIC_ASSET_MODE` (`inline|file|auto`) and preserve documented dev/test/prod asset behavior; updated deployment notes to keep Vercel and app header config aligned.
 - ✅ Switched magnet-pulse pickup attraction from frame-modulo polling in `RunScene.update()` to a repeating timed event in `RunScene.create()`, with paused/module guards in the timer callback so pull cadence stays consistent across low/high FPS devices.
