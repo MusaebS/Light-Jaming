@@ -33,7 +33,9 @@ export class BootScene extends Phaser.Scene {
   private preloadSpritesheets(): void {
     Object.values(ASSETS.spritesheets).forEach((asset) => {
       if (!asset.frameConfig) {
+        const reason = 'missing-frame-config';
         console.error(`[BootScene] Missing frameConfig for spritesheet key="${asset.key}"`);
+        this.bridge.emit('assetLoadError', { key: asset.key, source: getAssetSource(asset), reason });
         this.load.image(asset.key, getAssetSource(asset));
         return;
       }
@@ -50,8 +52,9 @@ export class BootScene extends Phaser.Scene {
 
   private registerLoaderDiagnostics(): void {
     this.load.on(Phaser.Loader.Events.FILE_LOAD_ERROR, (file: Phaser.Loader.File) => {
-      const source = file.src || file.url || 'unknown-source';
+      const source = String(file.src || file.url || 'unknown-source');
       console.error(`[BootScene] Failed to load asset key="${file.key}" source="${source}"`);
+      this.bridge.emit('assetLoadError', { key: file.key, source, reason: 'file-load-error' });
     });
 
     this.load.on(Phaser.Loader.Events.COMPLETE, (totalComplete: number, totalFailed: number) => {

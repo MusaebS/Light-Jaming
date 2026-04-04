@@ -165,6 +165,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Added a copyable in-app Diagnostics panel that records route boot info, user-agent, asset load completion/failures, and runtime window errors/rejections so Vercel route/asset issues can be pasted directly for debugging.
 - ✅ Fixed Vercel blank-page startup by allowing Next.js inline bootstrap/runtime script execution in CSP (`script-src 'self' 'unsafe-inline'`), while keeping the rest of the existing security-header policy intact across environments.
 - ✅ Fixed a production-blocking Phaser spritesheet preload issue by restoring explicit `frameConfig` values in the asset manifest and adding a BootScene diagnostic fallback/log path when spritesheet metadata is missing, so Vercel deployments fail visibly instead of rendering a blank game canvas.
 - ✅ Hardened save persistence by making `writeSave` return a success flag when `localStorage` is unavailable/blocked/full, and added a non-blocking in-UI warning plus console logging at save call sites while preserving the existing save key/version/shape.
