@@ -1,9 +1,10 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { HelpJournalPanel } from '@/components/HelpJournalPanel';
 import { HudOverlay } from '@/components/HudOverlay';
+import { DiagnosticsPanel } from '@/components/DiagnosticsPanel';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { TouchControls } from '@/components/TouchControls';
 import { WorkshopPanel } from '@/components/WorkshopPanel';
@@ -37,12 +38,30 @@ export default function HomePage() {
   const [activeScene, setActiveScene] = useState<SceneKey>('title');
   const [homeView, setHomeView] = useState<HomeView>('home');
   const [saveHint, setSaveHint] = useState('');
+  const [diagnosticLines, setDiagnosticLines] = useState<string[]>([]);
 
   const bridge = useMemo(() => new GameBridge(), []);
   const session = useMemo(
     () => ({ zone, settings: save.settings, modules: save.meta.unlockedUpgrades }),
     [zone, save.settings, save.meta.unlockedUpgrades]
   );
+
+  const persistSave = (nextSave: GameSave): void => {
+    const didPersist = writeSave(nextSave);
+    setSaveHint(
+      didPersist
+        ? ''
+        : 'Save failed in this browser session. Progress will continue for now but may not be restored after refresh.'
+    );
+  };
+
+  const appendDiagnostic = useCallback((line: string): void => {
+    setDiagnosticLines((prev) => {
+      const nextLine = `[${new Date().toISOString()}] ${line}`;
+      const next = [...prev, nextLine];
+      return next.slice(-200);
+    });
+  }, []);
 
   useEffect(() => {
     if (loaded) return;
@@ -55,13 +74,49 @@ export default function HomePage() {
     return bridge.on('hud', (payload) => {
       setHud(payload);
     });
-  }, [bridge]);
+  }, [appendDiagnostic, bridge]);
 
   useEffect(() => {
     return bridge.on('interactPrompt', ({ text }) => {
       setPrompt(text);
     });
   }, [bridge]);
+
+  useEffect(() => {
+    const initialRoute = typeof window !== 'undefined'
+      ? `${window.location.origin}${window.location.pathname}`
+      : 'server-render';
+    appendDiagnostic(`Route boot: ${initialRoute}`);
+    appendDiagnostic(`UA: ${typeof navigator !== 'undefined' ? navigator.userAgent : 'unknown'}`);
+    appendDiagnostic(`Asset mode: ${process.env.NEXT_PUBLIC_ASSET_MODE ?? 'auto'}`);
+
+    return bridge.on('assetLoadComplete', ({ totalComplete, totalFailed, totalToLoad }) => {
+      appendDiagnostic(`Asset load complete: success=${totalComplete} failed=${totalFailed} total=${totalToLoad}`);
+    });
+  }, [appendDiagnostic, bridge]);
+
+  useEffect(() => {
+    return bridge.on('assetLoadError', ({ key, source, reason }) => {
+      appendDiagnostic(`Asset load error: key=${key} reason=${reason} source=${source}`);
+    });
+  }, [appendDiagnostic, bridge]);
+
+  useEffect(() => {
+    const onError = (event: ErrorEvent): void => {
+      appendDiagnostic(`Window error: ${event.message} @ ${event.filename}:${event.lineno}:${event.colno}`);
+    };
+    const onUnhandledRejection = (event: PromiseRejectionEvent): void => {
+      appendDiagnostic(`Unhandled rejection: ${String(event.reason)}`);
+    };
+
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onUnhandledRejection);
+    };
+  }, [appendDiagnostic]);
 
   useEffect(() => {
     return bridge.on('sceneTransition', ({ to, reason }) => {
@@ -215,6 +270,11 @@ export default function HomePage() {
           <p className="muted">{saveHint}</p>
         </section>
       )}
+
+      <DiagnosticsPanel
+        lines={diagnosticLines}
+        onClear={() => setDiagnosticLines([])}
+      />
 
       {!running && (
         <>

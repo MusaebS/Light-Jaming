@@ -6,6 +6,12 @@ type AssetEntry = {
   key: string;
   inlineSource?: string;
   fileSource?: string;
+  frameConfig?: {
+    frameWidth: number;
+    frameHeight: number;
+    startFrame?: number;
+    endFrame?: number;
+  };
   // Legacy compatibility fields consumed by older scene/loader code.
   source: string;
   path: string;
@@ -79,11 +85,13 @@ export const ASSETS = {
       key: 'player-sheet',
       inlineSource: svgDataUri(playerSheetSvg),
       fileSource: '/assets/player-sheet.svg',
+      frameConfig: { frameWidth: 32, frameHeight: 32, startFrame: 0, endFrame: 3 },
     }),
     enemyCart: withResolvedSource({
       key: 'enemy-cart-sheet',
       inlineSource: svgDataUri(enemySheetSvg),
       fileSource: '/assets/enemy-cart-sheet.svg',
+      frameConfig: { frameWidth: 32, frameHeight: 32, startFrame: 0, endFrame: 3 },
     })
   },
   images: {

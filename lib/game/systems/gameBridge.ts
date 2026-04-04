@@ -42,6 +42,11 @@ export interface BridgeEvents {
     totalFailed: number;
     totalToLoad: number;
   };
+  assetLoadError: {
+    key: string;
+    source: string;
+    reason: string;
+  };
   sessionUpdate: SessionConfig;
 }
 

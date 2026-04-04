@@ -21,7 +21,9 @@ const buildCsp = (): string => {
     "base-uri 'self'",
     "frame-ancestors 'none'",
     "object-src 'none'",
-    "script-src 'self'",
+    // Next.js app router emits a small inline bootstrap/runtime script. Without
+    // allowing inline script execution, production can render a blank page.
+    "script-src 'self' 'unsafe-inline'",
     "style-src 'self' 'unsafe-inline'",
     `connect-src ${connectSrc}`,
     `img-src ${imgAndMediaSrc}`,

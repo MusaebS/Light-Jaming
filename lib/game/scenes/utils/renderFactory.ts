@@ -13,7 +13,10 @@ const GENERATED_TEXTURES = {
   marker: 'rt-marker'
 } as const;
 
-export type WorldEntity = Phaser.GameObjects.GameObject & { x: number; y: number };
+export type WorldEntity = Phaser.GameObjects.GameObject & {
+  x: number;
+  y: number;
+};
 
 const asBodyEntity = <T extends WorldEntity>(entity: T): T => entity;
 

@@ -21,6 +21,7 @@ export class RunScene extends Phaser.Scene {
   private static readonly MAX_ACTIVE_ENEMIES = 24;
   private static readonly ENEMY_TTL_MS = 90000;
   private static readonly ENEMY_CLEANUP_INTERVAL_MS = 8000;
+  private static readonly DEFAULT_CONTACT_DAMAGE = 0.22;
   private bridge!: GameBridge;
   private session!: SessionConfig;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
@@ -42,6 +43,12 @@ export class RunScene extends Phaser.Scene {
   private lastMoveDirection = new Phaser.Math.Vector2(1, 0);
   private controlUnsubscribe?: () => void;
   private sessionUpdateUnsubscribe?: () => void;
+  private onKeydownE?: () => void;
+  private onKeydownSpace?: () => void;
+  private onKeydownShift?: () => void;
+  private onKeydownEsc?: () => void;
+  private onAnyKeydown?: () => void;
+  private onPointerDown?: () => void;
   private audioUnlocked = false;
   private paused = false;
   private fallbackModeActive = false;
@@ -94,8 +101,8 @@ export class RunScene extends Phaser.Scene {
     this.createAnimations();
 
     this.player = this.physics.add.sprite(140, 120, this.resolvedTextures.player, 0);
-    this.player.setDepth(20);
-    this.player.play(ASSETS.anims.playerIdle);
+    this.setDepth(this.player, 20);
+    this.playAnimation(this.player, ASSETS.anims.playerIdle);
 
     this.playerFacing = this.add.image(140, 120, this.resolvedTextures.uiEnergy).setScale(0.9).setAlpha(0.8).setDepth(21);
 
@@ -368,7 +375,7 @@ export class RunScene extends Phaser.Scene {
     if (this.actionCooldown > 0) return;
     const tuning = buildPlayerTuning(this.session.modules);
     this.actionCooldown = this.session.modules.includes('arc-welder') ? 520 : 300;
-    this.player.play(ASSETS.anims.playerAction, true);
+    this.playAnimation(this.player, ASSETS.anims.playerAction, true);
 
     const strikeFx = this.add
       .image(this.player.x, this.player.y, this.resolvedTextures.beacon)
@@ -529,6 +536,7 @@ export class RunScene extends Phaser.Scene {
       enemy.setData('id', def.id);
       enemy.setData('hp', def.health);
       enemy.setData('speed', def.speed);
+      enemy.setData('contactDamage', def.contactDamage);
       enemy.setData('spawnedAt', this.time.now);
       this.getBody(enemy).setSize(18, 16).setOffset(7, 8);
       this.enemies.add(enemy);
@@ -657,6 +665,16 @@ export class RunScene extends Phaser.Scene {
   private markHudDirty(hint?: string): void {
     if (hint) this.hudHint = hint;
     this.hudDirty = true;
+  }
+
+  private emitInteractPromptWithCooldown(key: string, text: string, cooldownMs: number): void {
+    const lastAt = this.interactPromptCooldowns[key] ?? Number.NEGATIVE_INFINITY;
+    if (this.time.now - lastAt < cooldownMs) {
+      return;
+    }
+
+    this.interactPromptCooldowns[key] = this.time.now;
+    this.bridge.emit('interactPrompt', { text });
   }
 
   private flushHud(): void {
