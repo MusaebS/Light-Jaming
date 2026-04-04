@@ -1,5 +1,6 @@
 import * as Phaser from 'phaser';
 import { ASSETS } from '@/lib/game/assets/assetManifest';
+import { hasRenderableTexture } from '@/lib/game/scenes/utils/textureHealth';
 
 export const RENDER_MODE_ORDER = ['mode-a', 'mode-b', 'mode-c', 'mode-d'] as const;
 
@@ -31,7 +32,7 @@ const isGraphicsTextureAvailable = (scene: Phaser.Scene): boolean => {
   return available;
 };
 
-const canUseModeA = (scene: Phaser.Scene): boolean => MODE_A_REQUIRED_TEXTURES.every((key) => scene.textures.exists(key));
+const canUseModeA = (scene: Phaser.Scene): boolean => MODE_A_REQUIRED_TEXTURES.every((key) => hasRenderableTexture(scene, key));
 const canUseModeB = (scene: Phaser.Scene): boolean => isGraphicsTextureAvailable(scene);
 const canUseModeC = (scene: Phaser.Scene): boolean => scene.game.renderer !== null;
 
