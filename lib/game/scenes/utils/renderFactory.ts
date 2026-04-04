@@ -1,6 +1,7 @@
 import * as Phaser from 'phaser';
 import { ASSETS } from '@/lib/game/assets/assetManifest';
 import { RenderMode } from '@/lib/game/scenes/utils/renderStrategy';
+import { hasRenderableTexture } from '@/lib/game/scenes/utils/textureHealth';
 
 const GENERATED_TEXTURES = {
   player: 'rt-player',
@@ -121,12 +122,19 @@ export function createJunk(scene: Phaser.Scene, mode: RenderMode, x: number, y: 
 }
 
 export function drawArena(scene: Phaser.Scene, mode: RenderMode, worldRect: Phaser.Geom.Rectangle, zoneName: string, eventName: string): void {
-  if (mode === 'mode-a' || mode === 'mode-b') {
+  const canUseTexturedArena = (mode === 'mode-a' || mode === 'mode-b')
+    && hasRenderableTexture(scene, mode === 'mode-a' ? ASSETS.images.arenaBackground.key : GENERATED_TEXTURES.arenaBg)
+    && hasRenderableTexture(scene, mode === 'mode-a' ? ASSETS.images.arenaTile.key : GENERATED_TEXTURES.arenaTile);
+
+  if (canUseTexturedArena) {
     const bgKey = mode === 'mode-a' ? ASSETS.images.arenaBackground.key : GENERATED_TEXTURES.arenaBg;
     const tileKey = mode === 'mode-a' ? ASSETS.images.arenaTile.key : GENERATED_TEXTURES.arenaTile;
     scene.add.tileSprite(500, 350, worldRect.width, worldRect.height, bgKey).setAlpha(0.96).setDepth(0);
     scene.add.tileSprite(500, 350, worldRect.width, worldRect.height, tileKey).setAlpha(0.3).setDepth(1);
   } else {
+    if (mode === 'mode-a' || mode === 'mode-b') {
+      console.error(`[RenderFactory] Arena texture fallback activated for mode="${mode}" due to incomplete texture source.`);
+    }
     scene.add.rectangle(500, 350, worldRect.width, worldRect.height, 0x101928, 1).setDepth(0).setStrokeStyle(3, 0x80b8d6, 0.9);
     scene.add.line(500, 350, -460, 0, 460, 0, 0x2d4f66, 0.6).setDepth(1);
   }

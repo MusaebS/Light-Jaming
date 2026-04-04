@@ -165,6 +165,7 @@ This keeps local dev/test behavior compatible with inline asset-backed scenes wh
 
 ## Progress log
 
+- ✅ Fixed a production WebGL crash path (`Cannot read properties of undefined (reading 'glTexture')`) by validating texture frame/source readiness before selecting render mode A and before drawing textured arena layers, plus adding an explicit fallback diagnostic log when arena textures are incomplete.
 - ✅ Added a copyable in-app Diagnostics panel that records route boot info, user-agent, asset load completion/failures, and runtime window errors/rejections so Vercel route/asset issues can be pasted directly for debugging.
 - ✅ Fixed Vercel blank-page startup by allowing Next.js inline bootstrap/runtime script execution in CSP (`script-src 'self' 'unsafe-inline'`), while keeping the rest of the existing security-header policy intact across environments.
 - ✅ Fixed a production-blocking Phaser spritesheet preload issue by restoring explicit `frameConfig` values in the asset manifest and adding a BootScene diagnostic fallback/log path when spritesheet metadata is missing, so Vercel deployments fail visibly instead of rendering a blank game canvas.
